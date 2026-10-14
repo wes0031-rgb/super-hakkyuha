@@ -1,10 +1,10 @@
-import { W, H } from '../config.js?v=1792017972';
-import { CHARACTERS } from '../data/characters.js?v=1792017972';
-import { makeGradient } from '../level/textures.js?v=1792017972';
+import { W, H } from '../config.js?v=1792018473';
+import { CHARACTERS } from '../data/characters.js?v=1792018473';
+import { makeGradient } from '../level/textures.js?v=1792018473';
 
-import { setupCamera } from '../hidpi.js?v=1792017972';
-import { unlock, sfx } from '../audio.js?v=1792017972';
-import { button } from '../ui.js?v=1792017972';
+import { setupCamera } from '../hidpi.js?v=1792018473';
+import { unlock, sfx } from '../audio.js?v=1792018473';
+import { button } from '../ui.js?v=1792018473';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -43,7 +43,11 @@ export default class TitleScene extends Phaser.Scene {
       stroke: '#e2577f', strokeThickness: 8,
     }).setOrigin(0.5);
 
-    const cast = CHARACTERS;   // 쭈일리언까지 아홉이 같이 선다
+    // 아홉이 같이 선다. 팔라벨라가 맨 끝에 오게 쭈일리언과 자리를 바꾼다
+    const cast = CHARACTERS.slice();
+    const a = cast.findIndex((c) => c.id === 'palabella');
+    const b = cast.findIndex((c) => c.id === 'zzulien');
+    if (a >= 0 && b >= 0) [cast[a], cast[b]] = [cast[b], cast[a]];
     cast.forEach((c, i) => {
       const x = W / 2 + (i - (cast.length - 1) / 2) * 134;
       const s = this.add.image(x, 592, `base-${c.id}`).setOrigin(0.5, 1).setScale(0.27);

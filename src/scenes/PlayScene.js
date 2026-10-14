@@ -1,19 +1,19 @@
 import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
   HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE,
-} from '../config.js?v=1792017972';
-import { byId, MOTIONS } from '../data/characters.js?v=1792017972';
-import { byStage, STAGES } from '../data/stages.js?v=1792017972';
-import { rollMissions } from '../data/missions.js?v=1792017972';
-import { load, lv } from '../save.js?v=1792017972';
-import { byUp, valueOf } from '../data/upgrades.js?v=1792017972';
-import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792017972';
-import { makeGradient } from '../level/textures.js?v=1792017972';
-import Hero from '../objects/Hero.js?v=1792017972';
-import { setupCamera, scrollTo } from '../hidpi.js?v=1792017972';
-import { panel, bar } from '../ui.js?v=1792017972';
-import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js?v=1792017972';
-import { rowY } from '../config.js?v=1792017972';
+} from '../config.js?v=1792018473';
+import { byId, MOTIONS } from '../data/characters.js?v=1792018473';
+import { byStage, STAGES } from '../data/stages.js?v=1792018473';
+import { rollMissions } from '../data/missions.js?v=1792018473';
+import { load, lv } from '../save.js?v=1792018473';
+import { byUp, valueOf } from '../data/upgrades.js?v=1792018473';
+import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792018473';
+import { makeGradient } from '../level/textures.js?v=1792018473';
+import Hero from '../objects/Hero.js?v=1792018473';
+import { setupCamera, scrollTo } from '../hidpi.js?v=1792018473';
+import { panel, bar } from '../ui.js?v=1792018473';
+import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js?v=1792018473';
+import { rowY } from '../config.js?v=1792018473';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
