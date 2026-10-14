@@ -1,5 +1,5 @@
 import { W, H } from '../config.js';
-import { PLAYABLE } from '../data/characters.js';
+import { CHARACTERS } from '../data/characters.js';
 import { makeGradient } from '../level/textures.js';
 
 import { setupCamera } from '../hidpi.js';
@@ -43,10 +43,10 @@ export default class TitleScene extends Phaser.Scene {
       stroke: '#e2577f', strokeThickness: 8,
     }).setOrigin(0.5);
 
-    const cast = PLAYABLE;
+    const cast = CHARACTERS;   // 쭈일리언까지 아홉이 같이 선다
     cast.forEach((c, i) => {
-      const x = W / 2 + (i - (cast.length - 1) / 2) * 148;
-      const s = this.add.image(x, 592, `base-${c.id}`).setOrigin(0.5, 1).setScale(0.3);
+      const x = W / 2 + (i - (cast.length - 1) / 2) * 134;
+      const s = this.add.image(x, 592, `base-${c.id}`).setOrigin(0.5, 1).setScale(0.27);
       this.tweens.add({
         targets: s, y: 584, duration: 900 + i * 60, yoyo: true,
         repeat: -1, ease: 'Sine.easeInOut',
