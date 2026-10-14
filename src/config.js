@@ -42,7 +42,8 @@ export const STUN_MS = 900;
 export const FALL_Y = GROUND_Y + 92;
 
 export const TOKEN_SCORE = 100;
-export const STOMP_SCORE = [200, 400, 800, 1600, 3200];  // 연쇄 밟기
+// 이어 밟을수록 가파르게. 마리오가 100→200→400→800→…으로 올리는 이유다
+export const STOMP_SCORE = [200, 400, 800, 1600, 3200, 6000, 10000];
 
 export const CHUNK_COLS = 12;
 

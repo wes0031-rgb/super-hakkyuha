@@ -131,8 +131,8 @@ export default class Hero {
     this.play('spring_jump', true);
   }
 
-  stomp() {
-    this.body.setVelocityY(-JUMP_V * 0.68);
+  stomp(power = 1) {
+    this.body.setVelocityY(-JUMP_V * 0.72 * power);
     this.jumpsLeft = Math.max(this.jumpsLeft, 1);
     this.play('stomp', true);
   }

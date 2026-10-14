@@ -125,7 +125,8 @@ export function buildChunk(scene, G, chunk, ci, stage, tokenKey) {
             e.body.setSize(190, 150).setOffset(25, 50);
             e.setData('kind', 'slime');
             e.setData('homeX', x);
-            e.setVelocityX(-72);
+            e.setData('chase', chunk.diff >= 4 && (ci + c) % 3 === 0);
+            e.setVelocityX(-82);
             scene.tweens.add({
               targets: e, scaleX: S * 0.96, scaleY: S * 1.05, duration: 300,
               yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
@@ -148,8 +149,9 @@ export function buildChunk(scene, G, chunk, ci, stage, tokenKey) {
             made.push(e);
             e.body.setSize(160, 170).setOffset(20, 20);
             e.setData('kind', 'ghost');
+            // 너무 옅어지면 사라진 줄 안다. 윤곽은 남도록 0.45 까지만
             scene.tweens.add({
-              targets: e, alpha: 0.22, y: e.y - 20, duration: 1500,
+              targets: e, alpha: 0.45, y: e.y - 20, duration: 1500,
               yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
             });
             break;

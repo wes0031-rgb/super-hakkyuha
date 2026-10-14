@@ -404,17 +404,24 @@ export default class PlayScene extends Phaser.Scene {
     if (hero.giant || hero.boosting) { this.killEnemy(e); this.addScore(300); return; }
 
     const stompable = kind === 'slime' || kind === 'bee'
-      || (kind === 'ghost' && e.alpha > 0.6);
+      || (kind === 'ghost' && e.alpha > 0.7);
     if (stompable && stomping) {
-      this.killEnemy(e, kind === 'slime');
-      hero.stomp();
+      // 벌은 더 높이 튕긴다. 구멍을 건너는 발판으로 쓰라고 둔 것이다
+      this.killEnemy(e, kind === 'slime', kind === 'bee' ? 2 : 1);
+      hero.stomp(kind === 'bee' ? 1.25 : 1);
       sfx.stomp();
       this.hitMark(e.x, top + 10);
       const i = Math.min(hero.stompChain, STOMP_SCORE.length - 1);
-      this.addScore(STOMP_SCORE[i]);
-      this.floatText(e.x, top, `+${STOMP_SCORE[i]}`);
+      const add = STOMP_SCORE[i];
+      this.addScore(add);
+      this.floatText(e.x, top, `+${add}`);
       hero.stompChain++;
       this.tally('stomps');
+      // 이어 밟을수록 크게 돌려준다
+      if (hero.stompChain >= 3) {
+        this.chainMark(e.x, top - 40, hero.stompChain);
+        this.hp = Math.min(this.hpMax, this.hp + 4);
+      }
       return;
     }
     this.damage(HP_HIT, kind === 'chestnut');
@@ -426,7 +433,10 @@ export default class PlayScene extends Phaser.Scene {
     this.damage(HP_HIT, o.getData('kind') === 'spike');
   }
 
-  killEnemy(e, squash = false) {
+  killEnemy(e, squash = false, drop = 0) {
+    for (let i = 0; i < drop; i++) {
+      this.popToken(e.x + (i - (drop - 1) / 2) * 34, e.y - e.displayHeight * 0.6);
+    }
     if (squash) {
       e.setTexture('enm-slime-hurt');
       e.disableBody(true, false);
@@ -728,6 +738,21 @@ export default class PlayScene extends Phaser.Scene {
     }
   }
 
+  // 이어 밟기 표시
+  chainMark(x, y, n) {
+    const t = this.add.text(x, y, `${n}연속!`, {
+      fontFamily: FONT, fontSize: `${22 + Math.min(n, 8) * 3}px`, fontStyle: '900',
+      color: '#ffffff', stroke: '#ff9f1c', strokeThickness: 7,
+    }).setOrigin(0.5).setDepth(42).setScale(0.6);
+    this.tweens.add({ targets: t, scale: 1, duration: 170, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: t, y: y - 60, alpha: 0, delay: 360, duration: 480,
+      onComplete: () => t.destroy(),
+    });
+    this.sparkle(x, y, 4, 'fx_star');
+    if (n >= 5) this.cameras.main.flash(140, 255, 236, 180);
+  }
+
   // 밟거나 부술 때 터지는 표시
   hitMark(x, y) {
     const h = this.add.image(x, y, 'fx_hit').setScale(0.2).setDepth(9);
@@ -940,9 +965,14 @@ export default class PlayScene extends Phaser.Scene {
       if (!e || !e.active) return;
       const kind = e.getData('kind');
       if (kind === 'slime') {
-        const home = e.getData('homeX');
-        if (e.x < home - 70 && e.body.velocity.x < 0) e.setVelocityX(72);
-        if (e.x > home + 70 && e.body.velocity.x > 0) e.setVelocityX(-72);
+        if (e.getData('chase')) {
+          const d = this.hero.box.x - e.x;
+          if (Math.abs(d) < 420) e.setVelocityX(Math.sign(d) * 120);
+        } else {
+          const home = e.getData('homeX');
+          if (e.x < home - 70 && e.body.velocity.x < 0) e.setVelocityX(82);
+          if (e.x > home + 70 && e.body.velocity.x > 0) e.setVelocityX(-82);
+        }
         e.setFlipX(e.body.velocity.x > 0);
       } else if (kind === 'bee') {
         e.setTexture(Math.floor(time / 80) % 2 ? 'enm-bee1' : 'enm-bee2');
@@ -976,7 +1006,29 @@ export default class PlayScene extends Phaser.Scene {
       const d = e.x - this.hero.box.x;
       if (d > 60 && d < 620) hit = e;
     });
-    if (hit) { this.sparkle(hit.x, hit.y - 40); this.killEnemy(hit); this.addScore(150); }
+    if (!hit) return;
+    // 눈에 보이게 쏜다. 그냥 사라지면 버그로 보인다
+    const hx = this.hero.box.x + 20;
+    const hy = this.hero.box.y - 80;
+    const beam = this.add.image(hx, hy, 'fx_sparkle').setScale(0.3).setDepth(9);
+    this.tweens.add({
+      targets: beam, x: hit.x, y: hit.y - 40, scale: 0.5, duration: 190,
+      onComplete: () => {
+        beam.destroy();
+        if (!hit.active) return;
+        this.hitMark(hit.x, hit.y - 30);
+        this.killEnemy(hit);
+        this.addScore(150);
+      },
+    });
+    for (let i = 0; i < 3; i++) {
+      this.time.delayedCall(i * 45, () => {
+        const w = this.add.image(hx + i * 30, hy, 'fx_sparkle')
+          .setScale(0.16).setAlpha(0.8).setDepth(8);
+        this.tweens.add({ targets: w, alpha: 0, scale: 0.3, duration: 220,
+          onComplete: () => w.destroy() });
+      });
+    }
   }
 
   finish(cleared) {
