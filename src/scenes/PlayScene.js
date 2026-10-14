@@ -781,9 +781,12 @@ export default class PlayScene extends Phaser.Scene {
       if (this.over) return;
       if (p.x > W / 2) press(); else this.touchSlide = true;
     });
-    this.input.on('pointerup', (p) => {
-      if (p.x > W / 2) release(); else this.touchSlide = false;
-    });
+    const letGo = () => { this.touchSlide = false; release(); };
+    this.input.on('pointerup', letGo);
+    this.input.on('pointerupoutside', letGo);
+    this.input.on('gameout', letGo);
+    // 씬을 넘어오며 눌린 상태가 남는 걸 막는다
+    k.resetKeys();
   }
 
   // ── 루프 ───────────────────────────────────────────────

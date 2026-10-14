@@ -13,10 +13,32 @@
     font-family:"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
   #game{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
   canvas{display:block;image-rendering:auto}
+
+  /* 오프닝 — 창을 열 때 한 번만 덮는다. 그동안 게임은 뒤에서 로딩된다 */
+  #intro{position:fixed;inset:0;z-index:500;background:#1f1b33;overflow:hidden;transition:opacity .5s}
+  #intro.gone{opacity:0;pointer-events:none}
+  /* 컷신에 딸린 재생 막대를 화면 밖으로 밀어 가린다 */
+  #intro iframe{width:100%;height:calc(100% + 86px);border:0;display:block}
+  #skip{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);
+    font:800 19px/1 "Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#6b4a3a;
+    background:#ffd977;border:5px solid #7b5a48;border-radius:999px;
+    padding:14px 34px;cursor:pointer;box-shadow:0 6px 0 rgba(123,90,72,.4);
+    transition:background .15s,transform .15s}
+  #skip:hover{background:#ffe7a4;transform:translateX(-50%) translateY(-2px)}
+  #skip:active{transform:translateX(-50%) translateY(2px);box-shadow:0 2px 0 rgba(123,90,72,.4)}
+  #introbar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+    width:320px;height:6px;background:rgba(255,255,255,.25);border-radius:3px;overflow:hidden}
+  #introbar i{display:block;height:100%;width:0;background:#ffd977;border-radius:3px}
 </style>
 </head>
 <body>
 <div id="game"></div>
+
+<div id="intro" hidden>
+  <iframe id="introframe" title="오프닝"></iframe>
+  <button id="skip" type="button">건너뛰기 ▶</button>
+  <div id="introbar"><i></i></div>
+</div>
 <!-- 개발용 오류 수집. 헤드리스로 화면을 찍을 때 콘솔 대신 DOM 에서 읽는다 -->
 <pre id="errlog" style="position:fixed;left:8px;top:8px;margin:0;color:#ff9a9a;
   font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:999;pointer-events:none"></pre>
@@ -32,6 +54,44 @@
     const o = console[k].bind(console);
     console[k] = (...a) => { put(k.toUpperCase() + ' ' + a.map(String).join(' ')); o(...a); };
   });
+</script>
+<script>
+  // 오프닝은 창을 열 때 한 번만. ?nointro 를 붙이면 건너뛴다.
+  (function () {
+    const LEN = 33000;             // 장면 일곱 개 합이 31초. 여유를 둔다
+    const box = document.getElementById('intro');
+    const frame = document.getElementById('introframe');
+    const bar = document.querySelector('#introbar i');
+    const skip = document.getElementById('skip');
+    if (new URLSearchParams(location.search).has('nointro')) return;
+
+    box.hidden = false;
+    frame.src = 'opening.html';
+
+    let done = false;
+    const end = () => {
+      if (done) return;
+      done = true;
+      box.classList.add('gone');
+      setTimeout(() => { frame.src = 'about:blank'; box.remove(); }, 600);
+    };
+
+    skip.addEventListener('click', end);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') end();
+    });
+
+    frame.addEventListener('load', () => {
+      const t0 = performance.now();
+      const tick = () => {
+        if (done) return;
+        const p = Math.min(1, (performance.now() - t0) / LEN);
+        bar.style.width = (p * 100) + '%';
+        if (p >= 1) end(); else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  })();
 </script>
 <script src="lib/phaser.min.js"></script>
 <script type="module" src="src/main.js"></script>

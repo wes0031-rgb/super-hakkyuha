@@ -61,7 +61,8 @@ export default class Hero {
   get invuln() {
     return this.scene.time.now < this.invulnUntil || this.boosting || this.giant;
   }
-  get maxJumps() { return 1 + (this.stats.extraAir || 0) + this.bonusAir; }
+  // 기본 두 번. extraAir 가 있는 캐릭터와 2단 추가 파워업이 더해진다
+  get maxJumps() { return 2 + (this.stats.extraAir || 0) + this.bonusAir; }
 
   play(motion, force = false) {
     const m = this.meta[motion];

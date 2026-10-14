@@ -18,13 +18,13 @@ export function pickOrder(stage) {
 
   for (let i = 1; i < stage.chunks - 1; i++) {
     let pick;
-    if (i % 9 === 0) pick = bonus[0];
-    else if (i % 9 === 4) {
+    if (i % 12 === 0) pick = bonus[0];
+    else if (i % 13 === 5) {
       // 거대화는 세지만 금방 지루해져서 드물게 나오게 가중치를 낮춘다
       const weighted = power.flatMap((c) => (c.id === 'giant_lane' ? [c] : [c, c]));
       pick = weighted[Math.floor(Math.random() * weighted.length)];
     }
-    else if (i % 11 === 6) pick = heal[0];
+    else if (i % 16 === 9) pick = heal[0];
     else {
       const t = i / stage.chunks;
       const hi = Math.min(hi0, lo0 + Math.floor(t * (hi0 - lo0 + 1)));
@@ -246,10 +246,10 @@ export function buildWorld(scene, order, stage, tokenKey) {
 export function endlessPick(i, recent) {
   const pool = normal();
   if (i === 0) return byTag('start')[0];
-  if (i % 11 === 5) return byTag('power')[Math.floor(Math.random() * byTag('power').length)];
-  if (i % 17 === 9) return byTag('heal')[0];
+  if (i % 14 === 6) return byTag('power')[Math.floor(Math.random() * byTag('power').length)];
+  if (i % 22 === 12) return byTag('heal')[0];
   if (i % 23 === 14) return byTag('bonus')[0];
-  const hi = Math.min(5, 1 + Math.floor(i / 6));
+  const hi = Math.min(5, 1 + Math.floor(i / 4));
   const lo = Math.max(1, hi - 2);
   const band = pool.filter((c) => c.diff >= lo && c.diff <= hi && !recent.includes(c.id));
   const use = band.length ? band : pool.filter((c) => !recent.includes(c.id));

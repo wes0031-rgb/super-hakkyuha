@@ -8,16 +8,16 @@ export const TILE = 64;
 export const GROUND_Y = 576;
 export const ROWS = 9;
 
-export const SPEED_MIN = 420;      // 시작 속도
-export const SPEED_MAX = 640;      // 끝까지 가면 이 속도
-export const SPEED_RAMP = 0.0022;  // 1px 전진할 때마다 붙는 속도
+export const SPEED_MIN = 470;      // 시작 속도
+export const SPEED_MAX = 780;      // 끝까지 가면 이 속도
+export const SPEED_RAMP = 0.0028;  // 1px 전진할 때마다 붙는 속도
 
-export const GRAVITY = 2200;
-export const JUMP_V = 950;         // 1단 점프 초기 속도 — 발판 3칸(192px) 에 닿는 값
-export const JUMP2_V = 700;        // 2단 점프
+export const GRAVITY = 2900;
+export const JUMP_V = 1070;        // 1단 점프 — 발판 3칸(192px) 에 겨우 닿는 값
+export const JUMP2_V = 790;        // 2단 점프
 export const JUMP_CUT = 0.45;      // 버튼을 떼면 상승 속도에 곱한다
-export const SPRING_V = 1320;      // 스프링을 밟았을 때
-export const COYOTE_MS = 110;      // 발판에서 떨어진 뒤에도 점프를 받아주는 시간
+export const SPRING_V = 1560;      // 스프링을 밟았을 때
+export const COYOTE_MS = 95;      // 발판에서 떨어진 뒤에도 점프를 받아주는 시간
 export const BUFFER_MS = 120;      // 착지 직전 입력을 기억하는 시간
 
 export const HERO_W = 58;
@@ -25,11 +25,11 @@ export const HERO_H = 140;
 export const HERO_SLIDE_H = 58;
 
 export const HP_MAX = 100;
-export const HP_HIT = 25;
-export const HP_PIT = 40;
-export const HP_HEART = 2;
+export const HP_HIT = 34;      // 세 번 맞으면 쓰러진다
+export const HP_PIT = 50;      // 떨어지면 더 아프다
+export const HP_HEART = 1;
 export const REVIVE_HP = 50;
-export const INVULN_MS = 1600;
+export const INVULN_MS = 1300;
 
 export const BOOST_MS = 3000;
 export const GIANT_MS = 3800;
