@@ -32,10 +32,6 @@
     const o = console[k].bind(console);
     console[k] = (...a) => { put(k.toUpperCase() + ' ' + a.map(String).join(' ')); o(...a); };
   });
-  setTimeout(() => {
-    const c = document.querySelector('canvas');
-    if (c) put(`canvasinfo ${c.width}x${c.height} css=${c.style.width}x${c.style.height} dpr=${devicePixelRatio}`);
-  }, 2500);
 </script>
 <script src="lib/phaser.min.js"></script>
 <script type="module" src="src/main.js"></script>
