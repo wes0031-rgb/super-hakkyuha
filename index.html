@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>슈퍼 하뀨하</title>
+<meta name="description" content="Hearts2Hearts 하뀨하로 달리는 팬메이드 오토런 게임">
+<meta property="og:title" content="슈퍼 하뀨하">
+<meta property="og:description" content="쭈일리언을 구하러 가자!">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#2b2436;overflow:hidden;
+    font-family:"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  #game{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;image-rendering:auto}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<!-- 개발용 오류 수집. 헤드리스로 화면을 찍을 때 콘솔 대신 DOM 에서 읽는다 -->
+<pre id="errlog" style="position:fixed;left:8px;top:8px;margin:0;color:#ff9a9a;
+  font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:999;pointer-events:none"></pre>
+<script>
+  window.__errs = [];
+  const put = (m) => {
+    window.__errs.push(m);
+    document.getElementById('errlog').textContent = window.__errs.slice(-12).join('\n');
+  };
+  addEventListener('error', (e) => put('ERR ' + (e.message || e) + ' @' + (e.filename || '') + ':' + (e.lineno || '')));
+  addEventListener('unhandledrejection', (e) => put('REJ ' + e.reason));
+  ['error', 'warn'].forEach((k) => {
+    const o = console[k].bind(console);
+    console[k] = (...a) => { put(k.toUpperCase() + ' ' + a.map(String).join(' ')); o(...a); };
+  });
+  setTimeout(() => {
+    const c = document.querySelector('canvas');
+    if (c) put(`canvasinfo ${c.width}x${c.height} css=${c.style.width}x${c.style.height} dpr=${devicePixelRatio}`);
+  }, 2500);
+</script>
+<script src="lib/phaser.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

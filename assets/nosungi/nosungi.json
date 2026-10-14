@@ -1,0 +1,463 @@
+{
+ "character": "nosungi",
+ "name": "노숭이",
+ "cellScale": "캐릭터 박스 168×160px 기준",
+ "anims": {
+  "idle": {
+   "name": "대기",
+   "file": "idle.webp",
+   "frameWidth": 173,
+   "frameHeight": 149,
+   "frames": 36,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": true,
+   "anchor": {
+    "x": 86,
+    "y": 141
+   },
+   "origin": {
+    "x": 0.5017,
+    "y": 0.9468
+   },
+   "note": ""
+  },
+  "run": {
+   "name": "달리기",
+   "file": "run.webp",
+   "frameWidth": 190,
+   "frameHeight": 191,
+   "frames": 7,
+   "columns": 7,
+   "frameRate": 15.91,
+   "loop": true,
+   "anchor": {
+    "x": 84,
+    "y": 175
+   },
+   "origin": {
+    "x": 0.4457,
+    "y": 0.9187
+   },
+   "note": ""
+  },
+  "jump": {
+   "name": "점프",
+   "file": "jump.webp",
+   "frameWidth": 184,
+   "frameHeight": 171,
+   "frames": 17,
+   "columns": 8,
+   "frameRate": 15.45,
+   "loop": false,
+   "anchor": {
+    "x": 92,
+    "y": 165
+   },
+   "origin": {
+    "x": 0.5006,
+    "y": 0.965
+   },
+   "note": "제자리 버전. 위아래 이동은 게임 물리로"
+  },
+  "double_jump": {
+   "name": "2단 점프",
+   "file": "double_jump.webp",
+   "frameWidth": 226,
+   "frameHeight": 228,
+   "frames": 23,
+   "columns": 8,
+   "frameRate": 15.33,
+   "loop": false,
+   "anchor": {
+    "x": 114,
+    "y": 189
+   },
+   "origin": {
+    "x": 0.508,
+    "y": 0.8301
+   },
+   "note": "제자리 버전. 41~62% 구간에 회전"
+  },
+  "slide": {
+   "name": "슬라이드",
+   "file": "slide.webp",
+   "frameWidth": 214,
+   "frameHeight": 190,
+   "frames": 24,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 114,
+    "y": 159
+   },
+   "origin": {
+    "x": 0.534,
+    "y": 0.8381
+   },
+   "note": "22~72% 구간을 반복하면 홀드"
+  },
+  "land": {
+   "name": "착지",
+   "file": "land.webp",
+   "frameWidth": 203,
+   "frameHeight": 164,
+   "frames": 13,
+   "columns": 8,
+   "frameRate": 15.26,
+   "loop": false,
+   "anchor": {
+    "x": 101,
+    "y": 158
+   },
+   "origin": {
+    "x": 0.5017,
+    "y": 0.9613
+   },
+   "note": "첫 프레임 직후가 바닥 접촉"
+  },
+  "stomp": {
+   "name": "밟기",
+   "file": "stomp.webp",
+   "frameWidth": 208,
+   "frameHeight": 172,
+   "frames": 24,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 104,
+    "y": 166
+   },
+   "origin": {
+    "x": 0.5007,
+    "y": 0.9653
+   },
+   "note": "제자리 버전. 42% 지점이 적과 접촉"
+  },
+  "head_bump": {
+   "name": "블록 치기",
+   "file": "head_bump.webp",
+   "frameWidth": 188,
+   "frameHeight": 168,
+   "frames": 23,
+   "columns": 8,
+   "frameRate": 15.33,
+   "loop": false,
+   "anchor": {
+    "x": 94,
+    "y": 162
+   },
+   "origin": {
+    "x": 0.5001,
+    "y": 0.9651
+   },
+   "note": "제자리 버전. 36% 지점이 블록과 접촉"
+  },
+  "hit": {
+   "name": "피격·무적",
+   "file": "hit.webp",
+   "frameWidth": 230,
+   "frameHeight": 193,
+   "frames": 33,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 124,
+    "y": 177
+   },
+   "origin": {
+    "x": 0.5397,
+    "y": 0.9171
+   },
+   "note": "18% 지점 피격, 이후 깜빡임"
+  },
+  "down_revive": {
+   "name": "쓰러짐·부활",
+   "file": "down_revive.webp",
+   "frameWidth": 221,
+   "frameHeight": 237,
+   "frames": 51,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 119,
+    "y": 231
+   },
+   "origin": {
+    "x": 0.5427,
+    "y": 0.9763
+   },
+   "note": ""
+  },
+  "victory": {
+   "name": "승리 세리머니",
+   "file": "victory.webp",
+   "frameWidth": 223,
+   "frameHeight": 295,
+   "frames": 33,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 109,
+    "y": 289
+   },
+   "origin": {
+    "x": 0.4901,
+    "y": 0.9812
+   },
+   "note": ""
+  },
+  "boost": {
+   "name": "부스트 질주",
+   "file": "boost.webp",
+   "frameWidth": 202,
+   "frameHeight": 197,
+   "frames": 6,
+   "columns": 6,
+   "frameRate": 20,
+   "loop": true,
+   "anchor": {
+    "x": 83,
+    "y": 171
+   },
+   "origin": {
+    "x": 0.4153,
+    "y": 0.8688
+   },
+   "note": ""
+  },
+  "giant": {
+   "name": "거대화",
+   "file": "giant.webp",
+   "frameWidth": 364,
+   "frameHeight": 357,
+   "frames": 46,
+   "columns": 8,
+   "frameRate": 14.94,
+   "loop": false,
+   "anchor": {
+    "x": 163,
+    "y": 330
+   },
+   "origin": {
+    "x": 0.4494,
+    "y": 0.9253
+   },
+   "note": ""
+  },
+  "air_loop": {
+   "name": "공중 루프",
+   "file": "air_loop.webp",
+   "frameWidth": 188,
+   "frameHeight": 176,
+   "frames": 9,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": true,
+   "anchor": {
+    "x": 93,
+    "y": 164
+   },
+   "origin": {
+    "x": 0.4979,
+    "y": 0.9315
+   },
+   "note": "물리 점프 중 반복"
+  },
+  "spring_jump": {
+   "name": "스프링 점프",
+   "file": "spring_jump.webp",
+   "frameWidth": 221,
+   "frameHeight": 230,
+   "frames": 27,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 109,
+    "y": 195
+   },
+   "origin": {
+    "x": 0.4969,
+    "y": 0.8459
+   },
+   "note": "제자리 버전. 16% 지점 발사, 34~58% 회전"
+  },
+  "fall": {
+   "name": "추락",
+   "file": "fall.webp",
+   "frameWidth": 194,
+   "frameHeight": 181,
+   "frames": 18,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 96,
+    "y": 165
+   },
+   "origin": {
+    "x": 0.4969,
+    "y": 0.913
+   },
+   "note": "허둥대는 구간만. 낙하 이동은 물리로"
+  },
+  "surprise": {
+   "name": "놀람",
+   "file": "surprise.webp",
+   "frameWidth": 178,
+   "frameHeight": 205,
+   "frames": 21,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 89,
+    "y": 199
+   },
+   "origin": {
+    "x": 0.5006,
+    "y": 0.9696
+   },
+   "note": ""
+  },
+  "slip": {
+   "name": "미끄러짐",
+   "file": "slip.webp",
+   "frameWidth": 227,
+   "frameHeight": 237,
+   "frames": 27,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 101,
+    "y": 198
+   },
+   "origin": {
+    "x": 0.4489,
+    "y": 0.8369
+   },
+   "note": "제자리 버전. 미끄러지는 이동은 물리로"
+  },
+  "stun": {
+   "name": "기절",
+   "file": "stun.webp",
+   "frameWidth": 199,
+   "frameHeight": 167,
+   "frames": 36,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": true,
+   "anchor": {
+    "x": 97,
+    "y": 149
+   },
+   "origin": {
+    "x": 0.4893,
+    "y": 0.8951
+   },
+   "note": "머리 위 별은 fx/star.svg로 따로"
+  },
+  "power_up": {
+   "name": "파워업 획득",
+   "file": "power_up.webp",
+   "frameWidth": 189,
+   "frameHeight": 220,
+   "frames": 24,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 94,
+    "y": 214
+   },
+   "origin": {
+    "x": 0.5015,
+    "y": 0.9727
+   },
+   "note": ""
+  },
+  "game_over": {
+   "name": "게임 오버",
+   "file": "game_over.webp",
+   "frameWidth": 182,
+   "frameHeight": 150,
+   "frames": 36,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": true,
+   "anchor": {
+    "x": 96,
+    "y": 135
+   },
+   "origin": {
+    "x": 0.5299,
+    "y": 0.903
+   },
+   "note": ""
+  },
+  "pet_follow": {
+   "name": "펫 따라오기",
+   "file": "pet_follow.webp",
+   "frameWidth": 192,
+   "frameHeight": 176,
+   "frames": 36,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": true,
+   "anchor": {
+    "x": 92,
+    "y": 163
+   },
+   "origin": {
+    "x": 0.4836,
+    "y": 0.9282
+   },
+   "note": ""
+  },
+  "pet_activate": {
+   "name": "펫 스킬 발동",
+   "file": "pet_activate.webp",
+   "frameWidth": 185,
+   "frameHeight": 254,
+   "frames": 30,
+   "columns": 8,
+   "frameRate": 15,
+   "loop": false,
+   "anchor": {
+    "x": 92,
+    "y": 248
+   },
+   "origin": {
+    "x": 0.4999,
+    "y": 0.975
+   },
+   "note": ""
+  },
+  "pet_cheer": {
+   "name": "펫 응원",
+   "file": "pet_cheer.webp",
+   "frameWidth": 181,
+   "frameHeight": 201,
+   "frames": 14,
+   "columns": 8,
+   "frameRate": 15.56,
+   "loop": true,
+   "anchor": {
+    "x": 90,
+    "y": 195
+   },
+   "origin": {
+    "x": 0.5,
+    "y": 0.9725
+   },
+   "note": ""
+  }
+ }
+}

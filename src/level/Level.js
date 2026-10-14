@@ -1,0 +1,211 @@
+import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js';
+import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js';
+import { THEME_TILE } from '../data/stages.js';
+
+// 작가 에셋은 2배 해상도라 절반으로 줄여 쓴다. 타일 128 → 64.
+const S = 0.5;
+const TOKEN_S = 0.32;
+const POWER_S = 0.36;
+
+export function pickOrder(stage) {
+  const [lo0, hi0] = stage.diff;
+  const order = [byTag('start')[0]];
+  const recent = [];
+  const pool = normal();
+  const bonus = byTag('bonus');
+  const power = byTag('power');
+  const heal = byTag('heal');
+
+  for (let i = 1; i < stage.chunks - 1; i++) {
+    let pick;
+    if (i % 9 === 0) pick = bonus[0];
+    else if (i % 7 === 3) pick = power[Math.floor(Math.random() * power.length)];
+    else if (i % 11 === 6) pick = heal[0];
+    else {
+      const t = i / stage.chunks;
+      const hi = Math.min(hi0, lo0 + Math.floor(t * (hi0 - lo0 + 1)));
+      const lo = Math.max(lo0, hi - 1);
+      const band = pool.filter((c) => c.diff >= lo && c.diff <= hi && !recent.includes(c.id));
+      const use = band.length ? band : pool.filter((c) => c.diff <= hi0 && !recent.includes(c.id));
+      pick = use[Math.floor(Math.random() * use.length)] || pool[0];
+    }
+    recent.push(pick.id);
+    if (recent.length > 3) recent.shift();
+    order.push(pick);
+  }
+  order.push(byTag('goal')[0]);
+  return order;
+}
+
+export function buildWorld(scene, order, stage, tokenKey) {
+  const errs = validateChunks();
+  if (errs.length) console.warn('[청크 규칙 위반]', errs);
+
+  const groundKey = THEME_TILE[stage.theme] || 'forest-ground';
+  const G = {
+    solid: scene.physics.add.staticGroup(),
+    bricks: scene.physics.add.staticGroup(),
+    boxes: scene.physics.add.staticGroup(),
+    tokens: scene.physics.add.group({ allowGravity: false, immovable: true }),
+    powers: scene.physics.add.group({ allowGravity: false, immovable: true }),
+    enemies: scene.physics.add.group({ allowGravity: false, immovable: true }),
+    hazards: scene.physics.add.group({ allowGravity: false, immovable: true }),
+    springs: scene.physics.add.group({ allowGravity: false, immovable: true }),
+    puddles: scene.physics.add.group({ allowGravity: false, immovable: true }),
+  };
+  let goalX = 0;
+
+  const bob = (o, dy, dur, rot = 0) => {
+    scene.tweens.add({
+      targets: o, y: o.y - dy, angle: rot, duration: dur, yoyo: true,
+      repeat: -1, ease: 'Sine.easeInOut',
+    });
+  };
+
+  order.forEach((chunk, ci) => {
+    const ox = ci * CHUNK_COLS * TILE;
+    for (let r = 0; r < ROWS; r++) {
+      const row = chunk.rows[r];
+      for (let c = 0; c < CHUNK_COLS; c++) {
+        const ch = row[c];
+        if (ch === '.') continue;
+        const x = ox + c * TILE + TILE / 2;
+        const yTop = rowY(r);
+        const yMid = yTop + TILE / 2;
+        const yBot = yTop + TILE;
+
+        switch (ch) {
+          case 'G': {
+            const t = G.solid.create(x, yMid, groundKey).setScale(S);
+            t.refreshBody();
+            scene.add.image(x, yBot, groundKey).setOrigin(0.5, 0).setScale(S)
+              .setDepth(-1).setTint(0xdcd0c0);
+            scene.add.image(x, yBot + TILE, groundKey).setOrigin(0.5, 0).setScale(S)
+              .setDepth(-1).setTint(0xc4b8a8);
+            break;
+          }
+          case '=': {
+            const t = G.solid.create(x, yTop + 16, 'sky-platform').setScale(S);
+            t.body.setSize(96, 33).setOffset(0, 0);
+            t.refreshBody();
+            break;
+          }
+          case '#': {
+            const b = G.bricks.create(x, yMid, 'blk-cookie').setScale(S);
+            b.refreshBody();
+            break;
+          }
+          case 'B': {
+            const b = G.boxes.create(x, yMid, 'blk-item').setScale(S);
+            b.setData('full', true);
+            b.refreshBody();
+            break;
+          }
+          case 'o': {
+            const o = G.tokens.create(x, yMid, tokenKey).setScale(TOKEN_S);
+            o.body.setCircle(70, 30, 30);
+            o.setData('baseY', o.y);
+            bob(o, 7, 900, 6);
+            break;
+          }
+          case 'm': {
+            const e = G.enemies.create(x, yBot, 'enm-slime').setOrigin(0.5, 1).setScale(S);
+            e.body.setSize(190, 150).setOffset(25, 50);
+            e.setData('kind', 'slime');
+            e.setData('homeX', x);
+            e.setVelocityX(-72);
+            scene.tweens.add({
+              targets: e, scaleX: S * 0.96, scaleY: S * 1.05, duration: 300,
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case 'b': {
+            const e = G.enemies.create(x, yMid, 'enm-bee1').setScale(S);
+            e.body.setSize(170, 140).setOffset(35, 30);
+            e.setData('kind', 'bee');
+            e.setData('baseY', e.y);
+            scene.tweens.add({
+              targets: e, y: e.y - 26, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case 'g': {
+            const e = G.enemies.create(x, yMid, 'enm-ghost').setScale(S);
+            e.body.setSize(160, 170).setOffset(20, 20);
+            e.setData('kind', 'ghost');
+            scene.tweens.add({
+              targets: e, alpha: 0.22, y: e.y - 20, duration: 1500,
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case 'c': {
+            const e = G.enemies.create(x, yBot, 'enm-chestnut').setOrigin(0.5, 1).setScale(S);
+            e.body.setSize(160, 160).setOffset(20, 30);
+            e.setData('kind', 'chestnut');
+            scene.tweens.add({ targets: e, angle: -360, duration: 1400, repeat: -1 });
+            break;
+          }
+          case 's': {
+            const o = G.hazards.create(x, yBot, 'obs-spikes').setOrigin(0.5, 1).setScale(S);
+            o.body.setSize(210, 90).setOffset(17, 40);
+            o.setData('kind', 'spike');
+            break;
+          }
+          case 'h': {
+            const o = G.hazards.create(x, 10, 'obs-hanging').setOrigin(0.5, 0).setScale(S);
+            o.body.setSize(120, 380).setOffset(20, 20);
+            o.setData('kind', 'hang');
+            scene.tweens.add({
+              targets: o, angle: 6, duration: 1200, yoyo: true, repeat: -1,
+              ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case 't': {
+            const o = G.hazards.create(x, yBot, 'obs-tall').setOrigin(0.5, 1).setScale(S);
+            o.body.setSize(150, 330).setOffset(25, 20);
+            o.setData('kind', 'tall');
+            break;
+          }
+          case 'p': {
+            const o = G.springs.create(x, yBot, 'obs-spring').setOrigin(0.5, 1).setScale(S);
+            o.body.setSize(150, 120).setOffset(5, 44);
+            break;
+          }
+          case 'w': {
+            const o = G.puddles.create(x, yBot, 'obs-puddle').setOrigin(0.5, 1).setScale(S);
+            o.body.setSize(260, 60).setOffset(10, 40);
+            scene.tweens.add({
+              targets: o, scaleX: S * 0.97, scaleY: S * 1.06, duration: 500,
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case '1': case '2': case '3': case '4': case '5': case '6': {
+            const kinds = { 1: 'boost', 2: 'double', 3: 'giant', 4: 'heal', 5: 'magnet', 6: 'shield' };
+            const kind = kinds[ch];
+            const o = G.powers.create(x, yMid, `pw-${kind}`).setScale(POWER_S);
+            o.body.setCircle(80, 20, 20);
+            o.setData('kind', kind);
+            scene.tweens.add({
+              targets: o, scaleX: POWER_S * 1.05, scaleY: POWER_S * 0.96, duration: 1200,
+              yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+            break;
+          }
+          case 'F': {
+            goalX = x;
+            scene.flagX = x;
+            break;
+          }
+          default: break;
+        }
+      }
+    }
+  });
+
+  const width = order.length * CHUNK_COLS * TILE;
+  return { groups: G, width, goalX: goalX || width - 200 };
+}
