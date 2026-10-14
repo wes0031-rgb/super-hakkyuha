@@ -8,6 +8,8 @@ import { pickOrder, buildWorld } from '../level/Level.js';
 import { makeGradient } from '../level/textures.js';
 import Hero from '../objects/Hero.js';
 import { setupCamera, scrollTo } from '../hidpi.js';
+import { panel, bar } from '../ui.js';
+import { rowY } from '../config.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -29,6 +31,9 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   preload() {
+    // ?lite=1 — 모션을 최소만 싣는다. 느린 환경에서 화면만 확인할 때 쓴다
+    this.lite = new URLSearchParams(location.search).has('lite');
+    const list0 = this.lite ? ['idle', 'run', 'jump', 'land'] : MOTIONS;
     const load = (id, list) => {
       const meta = this.cache.json.get(`meta-${id}`).anims;
       for (const m of list) {
@@ -39,8 +44,8 @@ export default class PlayScene extends Phaser.Scene {
           { frameWidth: a.frameWidth, frameHeight: a.frameHeight });
       }
     };
-    load(this.heroId, MOTIONS);
-    load(this.petId, PET_MOTIONS);
+    load(this.heroId, list0);
+    load(this.petId, this.lite ? ['pet_follow'] : PET_MOTIONS);
     if (this.stage.rescue) load('zzulien', ['pet_follow']);
   }
 
@@ -60,8 +65,9 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   create() {
-    this.makeAnims(this.heroId, MOTIONS);
-    this.makeAnims(this.petId, PET_MOTIONS);
+    const list0 = this.lite ? ['idle', 'run', 'jump', 'land'] : MOTIONS;
+    this.makeAnims(this.heroId, list0);
+    this.makeAnims(this.petId, this.lite ? ['pet_follow'] : PET_MOTIONS);
     if (this.stage.rescue) this.makeAnims('zzulien', ['pet_follow']);
 
     this.order = pickOrder(this.stage);
@@ -86,9 +92,14 @@ export default class PlayScene extends Phaser.Scene {
     this.pet.play(`${this.petId}-pet_follow`);
     this.petTimer = 0;
 
+    this.shadow = this.add.image(0, 0, 'fx_shadow').setDepth(5).setAlpha(0.5);
+    this.combo = 0;
+    this.comboUntil = 0;
+
     this.bindCollisions();
     this.buildHUD();
     this.bindInput();
+    this.showBanner();
 
     const q = new URLSearchParams(location.search);
     this.freeze = q.has('freeze');
@@ -99,34 +110,110 @@ export default class PlayScene extends Phaser.Scene {
     this.cameras.main.fadeIn(180);
   }
 
+  // 스테이지 이름을 잠깐 띄운다
+  showBanner() {
+    const t1 = this.add.text(W / 2, H / 2 - 40, `${this.stage.id}. ${this.stage.name}`, {
+      fontFamily: FONT, fontSize: '62px', fontStyle: '900', color: '#ffffff',
+      stroke: '#7b5a48', strokeThickness: 12,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    const t2 = this.add.text(W / 2, H / 2 + 24, this.stage.hint, {
+      fontFamily: FONT, fontSize: '22px', fontStyle: '700', color: '#6b4a3a',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    this.tweens.add({ targets: [t1, t2], alpha: 1, y: '-=16', duration: 420, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: [t1, t2], alpha: 0, delay: 1500, duration: 460,
+      onComplete: () => { t1.destroy(); t2.destroy(); },
+    });
+  }
+
+  // 발밑에 깔 지면 높이. 없으면 null
+  groundYAt(x) {
+    if (this.tileAt(x, 8) === 'G') return GROUND_Y;
+    for (let r = 7; r >= 2; r--) if (this.tileAt(x, r) === '=') return rowY(r) + 16;
+    return null;
+  }
+
+  updateShadow() {
+    const hero = this.hero;
+    const gy = this.groundYAt(hero.box.x);
+    if (gy === null || hero.locked) { this.shadow.setVisible(false); return; }
+    const drop = Phaser.Math.Clamp((gy - hero.box.y) / 300, 0, 1);
+    this.shadow.setVisible(true);
+    this.shadow.setPosition(hero.box.x, gy - 4);
+    this.shadow.setScale((1 - drop * 0.45) * (hero.giant ? 1.5 : 1), 1 - drop * 0.45);
+    this.shadow.setAlpha(0.5 - drop * 0.3);
+  }
+
   // ── 배경 ───────────────────────────────────────────────
   drawBackground() {
     const [c1, c2] = this.stage.sky;
+    const th = this.stage.theme;
     makeGradient(this, 'sky_play', W, H, c1, c2);
-    this.add.image(0, 0, 'sky_play').setOrigin(0, 0).setScrollFactor(0).setDepth(-20);
+    this.add.image(0, 0, 'sky_play').setOrigin(0, 0).setScrollFactor(0).setDepth(-30);
 
-    const night = this.stage.theme === 'night';
-    if (!night) {
-      this.add.circle(1120, 120, 58, 0xfff6c9, 0.85).setScrollFactor(0).setDepth(-19);
-    } else {
-      for (let i = 0; i < 40; i++) {
-        this.add.circle(Math.random() * W, Math.random() * 380, 2 + Math.random() * 2,
-          0xffffff, 0.8).setScrollFactor(0.1).setDepth(-19);
+    const P = {
+      forest: { far: 0x9ec4a6, hill: 0xbfe8c0, hill2: 0xa8dcae, tree: 0x9ed89a, bush: 0xb4e2b8 },
+      dessert: { far: 0xe4c49a, hill: 0xf6dcb2, hill2: 0xeccb9a, tree: 0xffd9a8, bush: 0xffe8c8 },
+      sky: { far: 0xc6d8f2, hill: 0xdcebff, hill2: 0xc8ddf8, tree: 0xffffff, bush: 0xeef5ff },
+      night: { far: 0x3f3858, hill: 0x5f5578, hill2: 0x4e4566, tree: 0x4a4266, bush: 0x565073 },
+    }[th];
+
+    // 해 또는 달과 별
+    if (th === 'night') {
+      this.add.image(1110, 130, 'bg_moon').setScrollFactor(0.06).setDepth(-29).setScale(0.9);
+      for (let i = 0; i < 70; i++) {
+        const st = this.add.circle(Math.random() * W, Math.random() * 420,
+          1.2 + Math.random() * 2.2, 0xffffff, 0.5 + Math.random() * 0.5)
+          .setScrollFactor(0.06).setDepth(-29);
+        this.tweens.add({
+          targets: st, alpha: 0.2, duration: 900 + Math.random() * 1800,
+          yoyo: true, repeat: -1, delay: Math.random() * 1200,
+        });
       }
+    } else {
+      this.add.circle(1118, 122, 60, 0xfff6c9, 0.9).setScrollFactor(0.06).setDepth(-29);
+      this.add.circle(1118, 122, 86, 0xfff6c9, 0.25).setScrollFactor(0.06).setDepth(-29);
     }
 
-    const cloudTint = night ? 0x8e86a8 : 0xffffff;
-    for (let i = 0; i < 30; i++) {
-      this.add.image(i * 520 + 120, 110 + (i % 3) * 46, 'bg_cloud')
-        .setScrollFactor(0.25).setDepth(-18).setScale(0.8 + (i % 3) * 0.2).setTint(cloudTint);
+    // 먼 산
+    for (let i = 0; i < 26; i++) {
+      this.add.image(i * 560 + 100, GROUND_Y + 30, 'bg_far')
+        .setOrigin(0.5, 1).setScrollFactor(0.12).setDepth(-28)
+        .setScale(1.1 + (i % 2) * 0.3, 0.8).setTint(P.far).setAlpha(0.85);
     }
-    const hillTint = {
-      forest: 0xbfe8c0, dessert: 0xf3d6a8, sky: 0xd8e8ff, night: 0x5f5578,
-    }[this.stage.theme];
-    for (let i = 0; i < 54; i++) {
-      this.add.image(i * 330 + 60, GROUND_Y + 34, 'bg_hill')
-        .setOrigin(0.5, 1).setScrollFactor(0.55).setDepth(-17)
-        .setScale(0.62 + (i % 3) * 0.14, 0.42 + (i % 2) * 0.1).setTint(hillTint);
+
+    // 구름
+    const cloudTint = th === 'night' ? 0x8e86a8 : 0xffffff;
+    for (let i = 0; i < 34; i++) {
+      this.add.image(i * 460 + 120, 100 + (i % 4) * 44, 'bg_cloud')
+        .setScrollFactor(0.22).setDepth(-26)
+        .setScale(0.7 + (i % 3) * 0.25).setTint(cloudTint)
+        .setAlpha(th === 'night' ? 0.55 : 0.95);
+    }
+
+    // 언덕 두 겹
+    for (let i = 0; i < 60; i++) {
+      this.add.image(i * 300 + 40, GROUND_Y + 24, 'bg_hill')
+        .setOrigin(0.5, 1).setScrollFactor(0.4).setDepth(-24)
+        .setScale(0.8 + (i % 3) * 0.2, 0.5).setTint(P.hill2);
+    }
+    for (let i = 0; i < 70; i++) {
+      this.add.image(i * 250 + 120, GROUND_Y + 30, 'bg_hill')
+        .setOrigin(0.5, 1).setScrollFactor(0.62).setDepth(-22)
+        .setScale(0.6 + (i % 3) * 0.16, 0.4).setTint(P.hill);
+    }
+
+    // 나무와 덤불
+    for (let i = 0; i < 48; i++) {
+      const x = i * 340 + 180;
+      this.add.image(x, GROUND_Y + 4, 'bg_tree')
+        .setOrigin(0.5, 1).setScrollFactor(0.82).setDepth(-20)
+        .setScale(0.7 + (i % 3) * 0.15).setTint(P.tree);
+    }
+    for (let i = 0; i < 70; i++) {
+      this.add.image(i * 230 + 60, GROUND_Y + 6, 'bg_bush')
+        .setOrigin(0.5, 1).setScrollFactor(0.9).setDepth(-19)
+        .setScale(0.55 + (i % 3) * 0.2).setTint(P.bush);
     }
   }
 
@@ -183,7 +270,7 @@ export default class PlayScene extends Phaser.Scene {
     });
 
     this.physics.add.overlap(hero.box, this.G.puddles, (box, pd) => {
-      if (!hero.slipping) { hero.slip(this.time.now); this.puff(pd.x, pd.y); }
+      if (!hero.slipping) { hero.slip(this.time.now); this.splash(pd.x, pd.y - 10); }
     });
   }
 
@@ -194,6 +281,7 @@ export default class PlayScene extends Phaser.Scene {
 
   breakBrick(b) {
     this.puff(b.x, b.y);
+    this.hitMark(b.x, b.y);
     for (let i = 0; i < 4; i++) {
       const p = this.add.image(b.x, b.y, 'blk-cookie').setScale(0.16).setDepth(3);
       this.tweens.add({
@@ -218,8 +306,10 @@ export default class PlayScene extends Phaser.Scene {
       targets: t, scale: 0.46, alpha: 0, duration: 180, onComplete: () => t.destroy(),
     });
     this.tokenCount++;
-    this.addScore(Math.round(TOKEN_SCORE * (this.char.stats.token || 1)));
+    const mul = this.bumpCombo(this.time.now);
+    this.addScore(Math.round(TOKEN_SCORE * (this.char.stats.token || 1) * mul));
     this.hp = Math.min(HP_MAX, this.hp + HP_HEART);
+    this.sparkle(t.x, t.y, 3);
   }
 
   takePower(p) {
@@ -238,7 +328,7 @@ export default class PlayScene extends Phaser.Scene {
     if (kind === 'magnet') hero.giveMagnet(now);
     if (kind === 'shield') hero.giveShield();
     if (kind === 'double') hero.giveDouble();
-    if (kind === 'heal') this.hp = Math.min(HP_MAX, this.hp + 40);
+    if (kind === 'heal') { this.hp = Math.min(HP_MAX, this.hp + 40); this.heartUp(hero.x, hero.y - 100); }
     this.toast(label);
   }
 
@@ -256,6 +346,7 @@ export default class PlayScene extends Phaser.Scene {
     if (stompable && stomping) {
       this.killEnemy(e, kind === 'slime');
       hero.stomp();
+      this.hitMark(e.x, top + 10);
       const i = Math.min(hero.stompChain, STOMP_SCORE.length - 1);
       this.addScore(STOMP_SCORE[i]);
       this.floatText(e.x, top, `+${STOMP_SCORE[i]}`);
@@ -297,7 +388,9 @@ export default class PlayScene extends Phaser.Scene {
     }
 
     this.hp -= amount;
-    this.cameras.main.shake(140, 0.006);
+    this.combo = 0;
+    this.cameras.main.shake(150, 0.007);
+    this.sparkle(hero.x, hero.y - 90, 5, 'fx_star');
     if (this.hp > 0) {
       if (stun) hero.stun(this.time.now); else hero.hurt(this.time.now);
       return;
@@ -315,59 +408,110 @@ export default class PlayScene extends Phaser.Scene {
 
   // ── HUD ────────────────────────────────────────────────
   buildHUD() {
-    const panel = (x, y, w, h) => this.add.rectangle(x, y, w, h, 0xffffff, 0.9)
-      .setOrigin(0, 0).setStrokeStyle(4, 0x7b5a48).setScrollFactor(0).setDepth(50);
-
-    panel(16, 14, 274, 74);
-    this.add.image(42, 51, `base-${this.heroId}`).setScale(0.085)
+    panel(this, 16, 14, 280, 78);
+    this.add.image(46, 53, `base-${this.heroId}`).setScale(0.085)
       .setScrollFactor(0).setDepth(51);
-    this.add.text(74, 22, this.char.name, {
-      fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#8a6a56',
+    this.add.text(78, 24, this.char.name, {
+      fontFamily: FONT, fontSize: '15px', fontStyle: '900', color: '#8a6a56',
     }).setScrollFactor(0).setDepth(51);
-    this.add.rectangle(74, 46, 196, 20, 0xe6dcd2)
-      .setOrigin(0, 0).setStrokeStyle(3, 0x7b5a48).setScrollFactor(0).setDepth(51);
-    this.hpBar = this.add.rectangle(77, 49, 190, 14, 0xff7fa4)
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(52);
-    this.badge = this.add.text(74, 68, '', {
-      fontFamily: FONT, fontSize: '12px', color: '#8a6a56',
-    }).setScrollFactor(0).setDepth(51);
+    this.hpBar = bar(this, 78, 46, 200, 22, 0xff7fa4);
+    this.badge = this.add.text(78, 70, '', {
+      fontFamily: FONT, fontSize: '12px', fontStyle: '700', color: '#8a6a56',
+    }).setScrollFactor(0).setDepth(52);
 
-    panel(304, 14, 170, 74);
-    this.add.image(332, 51, this.tokenKey).setScale(0.17).setScrollFactor(0).setDepth(51);
-    this.tokenTxt = this.add.text(358, 36, '0', {
-      fontFamily: FONT, fontSize: '26px', fontStyle: '900', color: '#6b4a3a',
-    }).setScrollFactor(0).setDepth(51);
-
-    panel(488, 14, 230, 74);
-    this.add.text(502, 22, 'SCORE', {
-      fontFamily: FONT, fontSize: '13px', color: '#9a7b68',
-    }).setScrollFactor(0).setDepth(51);
-    this.scoreTxt = this.add.text(502, 40, '000000', {
+    panel(this, 312, 14, 176, 78);
+    this.add.image(342, 53, this.tokenKey).setScale(0.17).setScrollFactor(0).setDepth(51);
+    this.tokenTxt = this.add.text(370, 36, '0', {
       fontFamily: FONT, fontSize: '28px', fontStyle: '900', color: '#6b4a3a',
     }).setScrollFactor(0).setDepth(51);
 
-    panel(732, 14, 532, 74);
-    this.add.text(746, 22, `${this.stage.id}. ${this.stage.name}`, {
-      fontFamily: FONT, fontSize: '13px', color: '#9a7b68',
+    panel(this, 504, 14, 238, 78);
+    this.add.text(520, 24, 'SCORE', {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
     }).setScrollFactor(0).setDepth(51);
-    this.add.rectangle(746, 44, 502, 26, 0xe6dcd2)
-      .setOrigin(0, 0).setStrokeStyle(3, 0x7b5a48).setScrollFactor(0).setDepth(51);
-    this.progBar = this.add.rectangle(749, 47, 6, 20, 0xffd977)
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(52);
-    this.progIcon = this.add.image(749, 57, `base-${this.heroId}`)
-      .setScale(0.045).setScrollFactor(0).setDepth(53);
+    this.scoreTxt = this.add.text(520, 42, '000000', {
+      fontFamily: FONT, fontSize: '30px', fontStyle: '900', color: '#6b4a3a',
+    }).setScrollFactor(0).setDepth(51);
 
-    this.toastTxt = this.add.text(W / 2, 150, '', {
-      fontFamily: FONT, fontSize: '40px', fontStyle: '900', color: '#ffffff',
-      stroke: '#e2577f', strokeThickness: 8,
+    panel(this, 758, 14, 506, 78);
+    this.add.text(774, 24, `${this.stage.id}. ${this.stage.name}`, {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+    }).setScrollFactor(0).setDepth(51);
+    this.progTrack = bar(this, 774, 46, 474, 26, 0xffd977);
+    this.progTrack.draw(0);
+    this.progIcon = this.add.image(780, 59, `base-${this.heroId}`)
+      .setScale(0.05).setScrollFactor(0).setDepth(53);
+    this.add.image(1240, 59, 'i_flag').setScale(0.1).setScrollFactor(0).setDepth(52);
+
+    // 콤보
+    this.comboTxt = this.add.text(W / 2, 112, '', {
+      fontFamily: FONT, fontSize: '36px', fontStyle: '900', color: '#ffd977',
+      stroke: '#7b5a48', strokeThickness: 8,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(60).setAlpha(0);
 
-    this.hint = this.add.text(W / 2, H - 34,
-      `${this.stage.hint}   ·   Space 점프(공중에서 한 번 더) · ↓ 슬라이드`, {
-        fontFamily: FONT, fontSize: '16px', color: '#6b4a3a',
+    // 파워업 남은 시간
+    this.powerSlots = [];
+    for (let i = 0; i < 3; i++) {
+      const x = 20 + i * 96;
+      const g = panel(this, x, H - 92, 88, 70, { depth: 50 });
+      const icon = this.add.image(x + 44, H - 68, 'pw-boost')
+        .setScale(0.2).setScrollFactor(0).setDepth(51);
+      const b = bar(this, x + 10, H - 42, 68, 12, 0x7fd4ff, { depth: 51 });
+      const slot = { g, icon, bar: b, show: false };
+      [g, icon, b.back, b.fill].forEach((o) => o.setVisible(false));
+      this.powerSlots.push(slot);
+    }
+
+    this.toastTxt = this.add.text(W / 2, 162, '', {
+      fontFamily: FONT, fontSize: '42px', fontStyle: '900', color: '#ffffff',
+      stroke: '#e2577f', strokeThickness: 9,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(62).setAlpha(0);
+
+    this.hint = this.add.text(W / 2, H - 30,
+      'Space 점프(공중에서 한 번 더) · ↓ 슬라이드', {
+        fontFamily: FONT, fontSize: '16px', fontStyle: '700', color: '#6b4a3a',
         backgroundColor: '#ffffffcc', padding: { x: 14, y: 6 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(55);
-    this.tweens.add({ targets: this.hint, alpha: 0, delay: 4200, duration: 700 });
+    this.tweens.add({ targets: this.hint, alpha: 0, delay: 5000, duration: 700 });
+  }
+
+  // 지금 걸린 파워업을 아이콘과 남은 시간으로 보여 준다
+  updatePowerSlots(now) {
+    const hero = this.hero;
+    const live = [];
+    if (hero.boosting) live.push(['pw-boost', (hero.boostUntil - now) / 3000, 0x7fd4ff]);
+    if (hero.giant) live.push(['pw-giant', (hero.giantUntil - now) / 6000, 0xffb34d]);
+    if (hero.magnet) live.push(['pw-magnet', (hero.magnetUntil - now) / 7000, 0xff9ebd]);
+    if (hero.shield) live.push(['pw-shield', 1, 0xa8e6a3]);
+    if (hero.bonusAir) live.push(['pw-double', 1, 0xc9a7e8]);
+
+    this.powerSlots.forEach((slot, i) => {
+      const on = i < live.length;
+      [slot.g, slot.icon, slot.bar.back, slot.bar.fill].forEach((o) => o.setVisible(on));
+      if (!on) return;
+      const [key, ratio, color] = live[i];
+      slot.icon.setTexture(key);
+      slot.bar.fill.clear();
+      const x = 20 + i * 96;
+      const ww = Math.max(0, 62 * Phaser.Math.Clamp(ratio, 0, 1));
+      if (ww > 0) {
+        slot.bar.fill.fillStyle(color, 1);
+        slot.bar.fill.fillRoundedRect(x + 13, H - 39, ww, 6, 3);
+      }
+    });
+  }
+
+  bumpCombo(now) {
+    this.combo = now < this.comboUntil ? this.combo + 1 : 1;
+    this.comboUntil = now + 1500;
+    if (this.combo < 3) return 1;
+    const mul = 1 + Math.min(this.combo, 20) * 0.1;
+    this.comboTxt.setText(`${this.combo} 연속  ×${mul.toFixed(1)}`)
+      .setAlpha(1).setScale(0.8);
+    this.tweens.killTweensOf(this.comboTxt);
+    this.tweens.add({ targets: this.comboTxt, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: this.comboTxt, alpha: 0, delay: 1100, duration: 400 });
+    return mul;
   }
 
   addScore(n) {
@@ -400,13 +544,50 @@ export default class PlayScene extends Phaser.Scene {
     }
   }
 
-  sparkle(x, y) {
-    for (let i = 0; i < 5; i++) {
+  sparkle(x, y, n = 5, key = 'fx_sparkle') {
+    for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = this.add.image(x, y, 'fx_sparkle').setScale(0.22).setDepth(8);
+      const r = 40 + Math.random() * 40;
+      const s = this.add.image(x, y, key)
+        .setScale(0.14 + Math.random() * 0.14).setDepth(8)
+        .setAngle(Math.random() * 360);
       this.tweens.add({
-        targets: s, x: x + Math.cos(a) * 60, y: y + Math.sin(a) * 60,
-        scale: 0, alpha: 0, duration: 430, onComplete: () => s.destroy(),
+        targets: s, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r,
+        angle: s.angle + 180, scale: 0, alpha: 0,
+        duration: 380 + Math.random() * 260, ease: 'Quad.easeOut',
+        onComplete: () => s.destroy(),
+      });
+    }
+  }
+
+  // 밟거나 부술 때 터지는 표시
+  hitMark(x, y) {
+    const h = this.add.image(x, y, 'fx_hit').setScale(0.2).setDepth(9);
+    this.tweens.add({
+      targets: h, scale: 0.52, alpha: 0, duration: 300,
+      ease: 'Quad.easeOut', onComplete: () => h.destroy(),
+    });
+  }
+
+  // 회복했을 때 떠오르는 하트
+  heartUp(x, y) {
+    for (let i = 0; i < 3; i++) {
+      const h = this.add.image(x + (i - 1) * 26, y, 'fx_heart').setScale(0.16).setDepth(9);
+      this.tweens.add({
+        targets: h, y: y - 90 - i * 14, alpha: 0, duration: 760,
+        delay: i * 90, onComplete: () => h.destroy(),
+      });
+    }
+  }
+
+  // 물에 닿았을 때 튀는 물방울
+  splash(x, y) {
+    for (let i = 0; i < 6; i++) {
+      const d = this.add.image(x, y, 'fx_drop').setScale(0.12).setDepth(9);
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2;
+      this.tweens.add({
+        targets: d, x: x + Math.cos(a) * 70, y: y + Math.sin(a) * 60, alpha: 0,
+        scale: 0.05, duration: 460, onComplete: () => d.destroy(),
       });
     }
   }
@@ -476,16 +657,14 @@ export default class PlayScene extends Phaser.Scene {
 
     if (!this.won && hero.box.x >= this.goalX) this.reachGoal();
 
-    this.hpBar.width = Math.max(0, 190 * (this.hp / HP_MAX));
+    this.updateShadow();
+    this.updatePowerSlots(time);
+    this.hpBar.draw(this.hp / HP_MAX);
     this.tokenTxt.setText(String(this.tokenCount));
-    const marks = [];
-    if (this.revives > 0) marks.push('부활 1');
-    if (hero.shield) marks.push('보호막');
-    if (hero.magnet) marks.push('자석');
-    this.badge.setText(marks.join(' · '));
+    this.badge.setText(this.revives > 0 ? '부활 1회 남음' : '부활 없음');
     const p = Phaser.Math.Clamp(hero.box.x / this.goalX, 0, 1);
-    this.progBar.width = 6 + 496 * p;
-    this.progIcon.x = 749 + 496 * p;
+    this.progTrack.draw(p);
+    this.progIcon.x = 780 + 462 * p;
   }
 
   // 구멍에 빠졌을 때 — 체력을 깎고 마지막으로 디딘 자리에서 이어 달린다

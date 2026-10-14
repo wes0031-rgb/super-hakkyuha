@@ -69,6 +69,65 @@ export function buildTextures(scene) {
   gr.generateTexture('fx_puff', 32, 32);
   gr.destroy();
 
+  // 발밑 그림자
+  gr = g(scene);
+  for (let i = 10; i >= 1; i--) {
+    gr.fillStyle(0x3a2a20, 0.055 * i / 10 + 0.01);
+    gr.fillEllipse(70, 24, 130 * i / 10, 40 * i / 10);
+  }
+  gr.generateTexture('fx_shadow', 140, 48);
+  gr.destroy();
+
+  // 먼 산 실루엣 — 테마마다 색을 입혀 쓴다
+  gr = g(scene);
+  gr.fillStyle(0xffffff, 1);
+  gr.beginPath();
+  gr.moveTo(0, 220);
+  gr.lineTo(120, 60); gr.lineTo(210, 150); gr.lineTo(300, 30);
+  gr.lineTo(400, 160); gr.lineTo(500, 90); gr.lineTo(600, 220);
+  gr.closePath(); gr.fillPath();
+  gr.generateTexture('bg_far', 600, 220);
+  gr.destroy();
+
+  // 나무
+  gr = g(scene);
+  gr.fillStyle(0xc9a17a, 1).fillRoundedRect(44, 108, 22, 60, 8);
+  gr.lineStyle(5, INK, 1).strokeRoundedRect(44, 108, 22, 60, 8);
+  gr.fillStyle(0xffffff, 1);
+  gr.fillCircle(55, 70, 44);
+  gr.fillCircle(26, 92, 30);
+  gr.fillCircle(84, 92, 30);
+  gr.lineStyle(5, INK, 1);
+  gr.strokeCircle(55, 70, 44);
+  gr.strokeCircle(26, 92, 30);
+  gr.strokeCircle(84, 92, 30);
+  gr.generateTexture('bg_tree', 112, 172);
+  gr.destroy();
+
+  // 덤불
+  gr = g(scene);
+  gr.fillStyle(0xffffff, 1);
+  gr.fillCircle(30, 42, 26);
+  gr.fillCircle(62, 34, 32);
+  gr.fillCircle(94, 44, 24);
+  gr.fillRect(30, 44, 64, 24);
+  gr.lineStyle(5, INK, 1);
+  gr.strokeCircle(30, 42, 26);
+  gr.strokeCircle(62, 34, 32);
+  gr.strokeCircle(94, 44, 24);
+  gr.generateTexture('bg_bush', 124, 70);
+  gr.destroy();
+
+  // 달
+  gr = g(scene);
+  gr.fillStyle(0xfff4c4, 1).fillCircle(60, 60, 48);
+  gr.fillStyle(0xf2e2a8, 1);
+  gr.fillCircle(44, 46, 11);
+  gr.fillCircle(76, 70, 8);
+  gr.fillCircle(52, 80, 6);
+  gr.generateTexture('bg_moon', 120, 120);
+  gr.destroy();
+
   // 새장 — 쭈일리언 구출 연출
   gr = g(scene);
   gr.fillStyle(0xefe9fb, 1).fillRoundedRect(6, 24, 108, 100, 14);

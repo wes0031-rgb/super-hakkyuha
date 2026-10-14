@@ -49,7 +49,9 @@ export default class BootScene extends Phaser.Scene {
     // fx 는 SVG 만 있다
     this.load.svg('fx_sparkle', 'assets/fx/sparkle.svg', { width: 96, height: 96 });
     this.load.svg('fx_star', 'assets/fx/star.svg', { width: 96, height: 96 });
-    this.load.svg('fx_hit', 'assets/fx/hit.svg', { width: 128, height: 128 });
+    this.load.svg('fx_hit', 'assets/fx/hit.svg', { width: 160, height: 160 });
+    this.load.svg('fx_heart', 'assets/fx/heart.svg', { width: 96, height: 96 });
+    this.load.svg('fx_drop', 'assets/fx/drop.svg', { width: 64, height: 64 });
   }
 
   create() {

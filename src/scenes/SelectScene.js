@@ -14,6 +14,7 @@ export default class SelectScene extends Phaser.Scene {
 
   create() {
     setupCamera(this);
+    this.shadowG = this.add.graphics().setDepth(-5);
     const data = load();
     this.petPool = data.pets.slice();
     this.heroId = PLAYABLE.some((c) => c.id === data.lastHero) ? data.lastHero : PLAYABLE[0].id;
@@ -37,6 +38,8 @@ export default class SelectScene extends Phaser.Scene {
     PLAYABLE.forEach((c, i) => {
       const cx = x0 + i * (CWd + GX) + CWd / 2;
       const cy = 198;
+      this.shadowG.fillStyle(0x7b5a48, 0.22);
+      this.shadowG.fillRoundedRect(cx - CWd / 2 + 3, cy - CHt / 2 + 6, CWd, CHt, 16);
       const box = this.add.rectangle(cx, cy, CWd, CHt, 0xfffaf4).setStrokeStyle(5, 0x7b5a48)
         .setInteractive({ useHandCursor: true });
       this.add.image(cx, cy + 22, `base-${c.id}`).setOrigin(0.5, 1).setScale(0.15);
@@ -69,6 +72,8 @@ export default class SelectScene extends Phaser.Scene {
       const c = byId(id);
       const cx = px0 + i * (PWd + GX) + PWd / 2;
       const cy = 436;
+      this.shadowG.fillStyle(0x7b5a48, 0.22);
+      this.shadowG.fillRoundedRect(cx - PWd / 2 + 3, cy - PHt / 2 + 6, PWd, PHt, 16);
       const box = this.add.rectangle(cx, cy, PWd, PHt, 0xfffaf4).setStrokeStyle(5, 0x7b5a48)
         .setInteractive({ useHandCursor: true });
       this.add.image(cx, cy + 16, `base-${id}`).setOrigin(0.5, 1).setScale(0.12);

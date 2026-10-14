@@ -3,6 +3,7 @@ import { PLAYABLE } from '../data/characters.js';
 import { makeGradient } from '../level/textures.js';
 
 import { setupCamera } from '../hidpi.js';
+import { button } from '../ui.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -50,16 +51,7 @@ export default class TitleScene extends Phaser.Scene {
       });
     });
 
-    const btn = this.add.container(W / 2, 648);
-    const r = this.add.rectangle(0, 0, 300, 72, 0xffd977)
-      .setStrokeStyle(5, 0x7b5a48).setInteractive({ useHandCursor: true });
-    const t = this.add.text(0, 0, '▶ 시작하기', {
-      fontFamily: FONT, fontSize: '30px', fontStyle: '900', color: '#6b4a3a',
-    }).setOrigin(0.5);
-    btn.add([r, t]);
-    r.on('pointerover', () => r.setFillStyle(0xffe7a4));
-    r.on('pointerout', () => r.setFillStyle(0xffd977));
-    r.on('pointerup', () => this.scene.start('Stage'));
+    button(this, W / 2, 648, 300, 72, '▶ 시작하기', () => this.scene.start('Stage'), { size: '30px' });
 
     this.input.keyboard.once('keydown-SPACE', () => this.scene.start('Stage'));
     this.input.keyboard.once('keydown-ENTER', () => this.scene.start('Stage'));

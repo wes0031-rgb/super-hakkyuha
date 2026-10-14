@@ -12,6 +12,7 @@ export default class StageScene extends Phaser.Scene {
 
   create() {
     setupCamera(this);
+    this.shadowG = this.add.graphics().setDepth(-5);
     const data = load();
     const open = maxOpen();
 
@@ -37,6 +38,8 @@ export default class StageScene extends Phaser.Scene {
       const locked = s.id > open;
       const cleared = data.cleared.includes(s.id);
 
+      this.shadowG.fillStyle(0x7b5a48, 0.25);
+      this.shadowG.fillRoundedRect(cx - CWd / 2 + 4, cy - CHt / 2 + 8, CWd, CHt, 20);
       const box = this.add.rectangle(cx, cy, CWd, CHt, locked ? 0xded6e8 : 0xfffaf4)
         .setStrokeStyle(5, locked ? 0x6b5f85 : 0x7b5a48);
 

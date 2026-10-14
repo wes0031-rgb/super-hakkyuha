@@ -5,6 +5,7 @@ import { makeGradient } from '../level/textures.js';
 import { clearStage } from '../save.js';
 
 import { setupCamera } from '../hidpi.js';
+import { button, panel } from '../ui.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -33,7 +34,7 @@ export default class ResultScene extends Phaser.Scene {
 
     this.add.image(W / 2, 320, `base-${heroId}`).setOrigin(0.5, 1).setScale(0.3);
 
-    this.add.rectangle(W / 2, 400, 560, 118, 0xffffff, 0.92).setStrokeStyle(5, 0x7b5a48);
+    panel(this, W / 2 - 280, 341, 560, 118, { fixed: false, depth: 1 });
     this.add.text(W / 2 - 240, 362, '점수', {
       fontFamily: FONT, fontSize: '17px', color: '#9a7b68',
     });
@@ -48,7 +49,8 @@ export default class ResultScene extends Phaser.Scene {
     // 새로 들어온 펫
     if (news.length) {
       const y = 492;
-      this.add.rectangle(W / 2, y, 620, 96, 0xfff3d4).setStrokeStyle(5, 0xffb340);
+      panel(this, W / 2 - 310, y - 48, 620, 96,
+        { fill: 0xfff3d4, line: 0xffb340, fixed: false, depth: 1 });
       this.add.text(W / 2 - 280, y - 30, '펫이 늘었어요', {
         fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#b07a20',
       });
@@ -82,13 +84,6 @@ export default class ResultScene extends Phaser.Scene {
   }
 
   btn(x, y, label, fn) {
-    const r = this.add.rectangle(x, y, 300, 62, 0xffd977)
-      .setStrokeStyle(5, 0x7b5a48).setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, {
-      fontFamily: FONT, fontSize: '22px', fontStyle: '900', color: '#6b4a3a',
-    }).setOrigin(0.5);
-    r.on('pointerover', () => r.setFillStyle(0xffe7a4));
-    r.on('pointerout', () => r.setFillStyle(0xffd977));
-    r.on('pointerup', fn);
+    button(this, x, y, 300, 62, label, fn, { size: '22px' });
   }
 }
