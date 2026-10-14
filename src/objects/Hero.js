@@ -1,9 +1,9 @@
-import { sfx } from '../audio.js';
+import { sfx } from '../audio.js?v=1792017972';
 import {
   HERO_W, HERO_H, HERO_SLIDE_H, JUMP_V, JUMP2_V, JUMP_CUT, SPRING_V,
   COYOTE_MS, BUFFER_MS, SPEED_MIN, SPEED_MAX, SPEED_RAMP,
   BOOST_MS, GIANT_MS, INVULN_MS, MAGNET_MS, SLIP_MS, STUN_MS,
-} from '../config.js';
+} from '../config.js?v=1792017972';
 
 // 물리 바디는 보이지 않는 사각형이고, 그림은 매 프레임 그 바닥에 발을 맞춘다.
 // 모션마다 칸 크기가 달라도 발 위치가 흔들리지 않는다.

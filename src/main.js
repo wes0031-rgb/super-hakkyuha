@@ -1,12 +1,12 @@
-import { W, H, GRAVITY } from './config.js';
-import { DPR } from './hidpi.js';
-import BootScene from './scenes/BootScene.js';
-import TitleScene from './scenes/TitleScene.js';
-import StageScene from './scenes/StageScene.js';
-import SelectScene from './scenes/SelectScene.js';
-import ShopScene from './scenes/ShopScene.js';
-import PlayScene from './scenes/PlayScene.js';
-import ResultScene from './scenes/ResultScene.js';
+import { W, H, GRAVITY } from './config.js?v=1792017972';
+import { DPR } from './hidpi.js?v=1792017972';
+import BootScene from './scenes/BootScene.js?v=1792017972';
+import TitleScene from './scenes/TitleScene.js?v=1792017972';
+import StageScene from './scenes/StageScene.js?v=1792017972';
+import SelectScene from './scenes/SelectScene.js?v=1792017972';
+import ShopScene from './scenes/ShopScene.js?v=1792017972';
+import PlayScene from './scenes/PlayScene.js?v=1792017972';
+import ResultScene from './scenes/ResultScene.js?v=1792017972';
 
 new Phaser.Game({
   type: Phaser.AUTO,

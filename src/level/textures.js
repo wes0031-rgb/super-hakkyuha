@@ -1,5 +1,5 @@
 // 작가 에셋에 없는 것만 코드로 그린다 — 히어로 물리 박스, 배경 구름·언덕, 깃발, 새장.
-import { HERO_W, HERO_H } from '../config.js';
+import { HERO_W, HERO_H } from '../config.js?v=1792017972';
 
 const INK = 0x7b5a48;
 

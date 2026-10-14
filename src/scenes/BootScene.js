@@ -1,7 +1,7 @@
-import { CHARACTERS } from '../data/characters.js';
-import { buildTextures } from '../level/textures.js';
-import { W, H } from '../config.js';
-import { setupCamera } from '../hidpi.js';
+import { CHARACTERS } from '../data/characters.js?v=1792017972';
+import { buildTextures } from '../level/textures.js?v=1792017972';
+import { W, H } from '../config.js?v=1792017972';
+import { setupCamera } from '../hidpi.js?v=1792017972';
 
 const TOKENS = ['bone', 'clover', 'flower', 'heart', 'note', 'paw', 'ribbon', 'seed', 'snowflake'];
 const POWERS = ['boost', 'double', 'giant', 'heal', 'magnet', 'shield'];

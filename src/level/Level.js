@@ -1,6 +1,6 @@
-import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js';
-import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js';
-import { THEME_TILE } from '../data/stages.js';
+import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792017972';
+import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792017972';
+import { THEME_TILE } from '../data/stages.js?v=1792017972';
 
 // 작가 에셋은 2배 해상도라 절반으로 줄여 쓴다. 타일 128 → 64.
 const S = 0.5;
@@ -172,9 +172,11 @@ export function buildChunk(scene, G, chunk, ci, stage, tokenKey) {
             break;
           }
           case 'h': {
-            const o = G.hazards.create(x, 10, 'obs-hanging').setOrigin(0.5, 0).setScale(S);
+            // 아래끝이 지면에서 100px 이어야 서서는 못 지나고 슬라이드로만 지난다
+            const o = G.hazards.create(x, 0, 'obs-hanging').setOrigin(0.5, 0);
+            o.setScale(S, (GROUND_Y - 100) / 424);
             made.push(o);
-            o.body.setSize(120, 380).setOffset(20, 20);
+            o.body.setSize(120, 400).setOffset(20, 0);
             o.setData('kind', 'hang');
             scene.tweens.add({
               targets: o, angle: 6, duration: 1200, yoyo: true, repeat: -1,

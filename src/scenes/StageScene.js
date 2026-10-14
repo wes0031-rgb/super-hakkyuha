@@ -1,12 +1,12 @@
-import { W, H } from '../config.js';
-import { STAGES } from '../data/stages.js';
-import { makeGradient } from '../level/textures.js';
-import { load, maxOpen, endlessOpen } from '../save.js';
-import { byId } from '../data/characters.js';
-import { button } from '../ui.js';
+import { W, H } from '../config.js?v=1792017972';
+import { STAGES } from '../data/stages.js?v=1792017972';
+import { makeGradient } from '../level/textures.js?v=1792017972';
+import { load, maxOpen, endlessOpen } from '../save.js?v=1792017972';
+import { byId } from '../data/characters.js?v=1792017972';
+import { button } from '../ui.js?v=1792017972';
 
-import { setupCamera } from '../hidpi.js';
-import { unlock, sfx } from '../audio.js';
+import { setupCamera } from '../hidpi.js?v=1792017972';
+import { unlock, sfx } from '../audio.js?v=1792017972';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
