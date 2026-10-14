@@ -4,6 +4,7 @@ import { makeGradient } from '../level/textures.js';
 import { load, setLast } from '../save.js';
 
 import { setupCamera } from '../hidpi.js';
+import { unlock, sfx } from '../audio.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -14,6 +15,7 @@ export default class SelectScene extends Phaser.Scene {
 
   create() {
     setupCamera(this);
+    this.input.on('pointerdown', () => { unlock(); sfx.click(); });
     this.shadowG = this.add.graphics().setDepth(-5);
     const data = load();
     this.petPool = data.pets.slice();
@@ -52,7 +54,7 @@ export default class SelectScene extends Phaser.Scene {
       this.heroCards.push({ id: c.id, box });
     });
 
-    this.skill = this.add.text(W / 2, 290, '', {
+    this.skill = this.add.text(W / 2, 300, '', {
       fontFamily: FONT, fontSize: '19px', color: '#6b4a3a',
       backgroundColor: '#ffffff', padding: { x: 18, y: 7 },
     }).setOrigin(0.5);

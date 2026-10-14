@@ -1,14 +1,18 @@
 import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
-  HP_MAX, HP_HIT, HP_PIT, HP_HEART, REVIVE_HP, TOKEN_SCORE, STOMP_SCORE,
+  HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE,
 } from '../config.js';
 import { byId, MOTIONS, PET_MOTIONS } from '../data/characters.js';
-import { byStage } from '../data/stages.js';
-import { pickOrder, buildWorld } from '../level/Level.js';
+import { byStage, STAGES } from '../data/stages.js';
+import { rollMissions } from '../data/missions.js';
+import { load, lv } from '../save.js';
+import { byUp, valueOf } from '../data/upgrades.js';
+import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js';
 import { makeGradient } from '../level/textures.js';
 import Hero from '../objects/Hero.js';
 import { setupCamera, scrollTo } from '../hidpi.js';
 import { panel, bar } from '../ui.js';
+import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js';
 import { rowY } from '../config.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
@@ -19,15 +23,39 @@ export default class PlayScene extends Phaser.Scene {
   init(data) {
     this.heroId = data.heroId;
     this.petId = data.petId;
-    this.stage = byStage(data.stageId || 1);
+    this.endless = data.stageId === 'endless';
+    this.stage = this.endless
+      ? { id: 'endless', name: '끝없이 달리기', theme: 'forest', chunks: 0,
+          diff: [1, 5], sky: ['#9fd8f5', '#e8f7ff'], hint: '어디까지 갈 수 있을까요' }
+      : byStage(data.stageId || 1);
     this.char = byId(this.heroId);
     this.tokenKey = `tok-${this.char.token}`;
+
+    // 올려 둔 능력치를 반영한다
+    const up = {
+      boostMs: valueOf(byUp('boost'), lv('boost')) * 1000,
+      magnetMs: valueOf(byUp('magnet'), lv('magnet')) * 1000,
+      giantMs: valueOf(byUp('giant'), lv('giant')) * 1000,
+    };
+    this.up = up;
+    this.hpMax = valueOf(byUp('hp'), lv('hp'));
+    this.scoreMul = valueOf(byUp('value'), lv('value'));
+
     this.score = 0;
     this.tokenCount = 0;
-    this.hp = HP_MAX;
-    this.revives = 1;
+    this.hp = this.hpMax;
+    this.revives = valueOf(byUp('revive'), lv('revive'));
     this.over = false;
     this.won = false;
+
+    // 이번 판 미션 세 개
+    this.missions = rollMissions(this.endless ? 4 : this.stage.id, load().doneMissions)
+      .map((m) => ({ ...m, got: 0, done: false }));
+    this.stat = {
+      tokens: 0, stomps: 0, doubles: 0, slides: 0, springs: 0,
+      bricks: 0, powers: 0, bestCombo: 0, dist: 0, noHit: 1, noPower: 1,
+    };
+    this.milestone = 0;
   }
 
   preload() {
@@ -70,18 +98,28 @@ export default class PlayScene extends Phaser.Scene {
     this.makeAnims(this.petId, this.lite ? ['pet_follow'] : PET_MOTIONS);
     if (this.stage.rescue) this.makeAnims('zzulien', ['pet_follow']);
 
-    this.order = pickOrder(this.stage);
-    const { groups, width, goalX } = buildWorld(this, this.order, this.stage, this.tokenKey);
-    this.G = groups;
-    this.worldW = width;
-    this.goalX = goalX;
+    if (this.endless) {
+      this.G = makeGroups(this);
+      this.order = [];
+      this.built = new Map();
+      this.recent = [];
+      this.worldW = 1e7;
+      this.goalX = 1e7;
+      this.ensureAhead(0);
+    } else {
+      this.order = pickOrder(this.stage);
+      const { groups, width, goalX } = buildWorld(this, this.order, this.stage, this.tokenKey);
+      this.G = groups;
+      this.worldW = width;
+      this.goalX = goalX;
+    }
 
     this.physics.world.setBounds(0, -500, width, H + 900);
     setupCamera(this);
     this.camX = 0;
 
     this.drawBackground();
-    this.drawGoal();
+    if (!this.endless) this.drawGoal();
 
     const heroMeta = this.cache.json.get(`meta-${this.heroId}`).anims;
     this.hero = new Hero(this, 180, GROUND_Y, this.char, heroMeta);
@@ -100,6 +138,8 @@ export default class PlayScene extends Phaser.Scene {
     this.buildHUD();
     this.bindInput();
     this.showBanner();
+    startMusic(this.stage.theme);
+    this.events.once('shutdown', () => stopMusic());
 
     const q = new URLSearchParams(location.search);
     this.freeze = q.has('freeze');
@@ -108,6 +148,27 @@ export default class PlayScene extends Phaser.Scene {
     this.lastSonic = 0;
     scrollTo(this, 0);
     this.cameras.main.fadeIn(180);
+  }
+
+  // 끝없이 달리기 — 앞쪽을 미리 깔고 지나간 자리는 치운다
+  ensureAhead(x) {
+    const span = CHUNK_COLS * TILE;
+    const head = Math.floor(x / span) + 4;
+    while (this.order.length <= head) {
+      const i = this.order.length;
+      const ch = endlessPick(i, this.recent);
+      this.recent.push(ch.id);
+      if (this.recent.length > 3) this.recent.shift();
+      this.order.push(ch);
+      const r = buildChunk(this, this.G, ch, i, this.stage, this.tokenKey);
+      this.built.set(i, r.made);
+    }
+    const tail = Math.floor(x / span) - 3;
+    for (const [i, made] of this.built) {
+      if (i >= tail) continue;
+      made.forEach((o) => o.destroy());
+      this.built.delete(i);
+    }
   }
 
   // 스테이지 이름을 잠깐 띄운다
@@ -252,6 +313,7 @@ export default class PlayScene extends Phaser.Scene {
         blk.setData('full', false);
         blk.setTexture('blk-empty');
         hero.bump();
+        sfx.bump();
         this.tweens.add({ targets: blk, y: blk.y - 10, duration: 90, yoyo: true });
         this.popToken(blk.x, blk.y - 60);
       }
@@ -265,12 +327,14 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(hero.box, this.G.springs, (box, sp) => {
       if (hero.body.velocity.y <= 0) return;
       hero.spring();
+      this.tally('springs');
+      sfx.spring();
       this.tweens.add({ targets: sp, scaleY: 0.28, duration: 90, yoyo: true });
       this.sparkle(sp.x, sp.y - 40);
     });
 
     this.physics.add.overlap(hero.box, this.G.puddles, (box, pd) => {
-      if (!hero.slipping) { hero.slip(this.time.now); this.splash(pd.x, pd.y - 10); }
+      if (!hero.slipping) { hero.slip(this.time.now); sfx.slip(); this.splash(pd.x, pd.y - 10); }
     });
   }
 
@@ -280,6 +344,8 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   breakBrick(b) {
+    this.tally('bricks');
+    sfx.break_();
     this.puff(b.x, b.y);
     this.hitMark(b.x, b.y);
     for (let i = 0; i < 4; i++) {
@@ -306,9 +372,11 @@ export default class PlayScene extends Phaser.Scene {
       targets: t, scale: 0.46, alpha: 0, duration: 180, onComplete: () => t.destroy(),
     });
     this.tokenCount++;
+    this.tally('tokens');
+    sfx.token(this.combo);
     const mul = this.bumpCombo(this.time.now);
-    this.addScore(Math.round(TOKEN_SCORE * (this.char.stats.token || 1) * mul));
-    this.hp = Math.min(HP_MAX, this.hp + HP_HEART);
+    this.addScore(Math.round(TOKEN_SCORE * (this.char.stats.token || 1) * mul * this.scoreMul));
+    this.hp = Math.min(this.hpMax, this.hp + HP_HEART);
     this.sparkle(t.x, t.y, 3);
   }
 
@@ -318,6 +386,9 @@ export default class PlayScene extends Phaser.Scene {
     const now = this.time.now;
     const hero = this.hero;
     hero.powerUp();
+    this.stat.noPower = 0;
+    this.tally('powers');
+    if (kind === 'heal') sfx.heal(); else sfx.power();
     this.sparkle(hero.x, hero.y - 90);
     const label = {
       boost: '부스트!', giant: '거대화!', magnet: '자석!',
@@ -328,7 +399,7 @@ export default class PlayScene extends Phaser.Scene {
     if (kind === 'magnet') hero.giveMagnet(now);
     if (kind === 'shield') hero.giveShield();
     if (kind === 'double') hero.giveDouble();
-    if (kind === 'heal') { this.hp = Math.min(HP_MAX, this.hp + 40); this.heartUp(hero.x, hero.y - 100); }
+    if (kind === 'heal') { this.hp = Math.min(this.hpMax, this.hp + 40); this.heartUp(hero.x, hero.y - 100); }
     this.toast(label);
   }
 
@@ -346,11 +417,13 @@ export default class PlayScene extends Phaser.Scene {
     if (stompable && stomping) {
       this.killEnemy(e, kind === 'slime');
       hero.stomp();
+      sfx.stomp();
       this.hitMark(e.x, top + 10);
       const i = Math.min(hero.stompChain, STOMP_SCORE.length - 1);
       this.addScore(STOMP_SCORE[i]);
       this.floatText(e.x, top, `+${STOMP_SCORE[i]}`);
       hero.stompChain++;
+      this.tally('stomps');
       return;
     }
     this.damage(HP_HIT, kind === 'chestnut');
@@ -358,6 +431,7 @@ export default class PlayScene extends Phaser.Scene {
 
   touchHazard(o) {
     if (this.hero.locked) return;
+    if (o.getData('kind') === 'hang' && this.hero.sliding) return;
     this.damage(HP_HIT, o.getData('kind') === 'spike');
   }
 
@@ -388,6 +462,8 @@ export default class PlayScene extends Phaser.Scene {
     }
 
     this.hp -= amount;
+    this.stat.noHit = 0;
+    sfx.hurt();
     this.combo = 0;
     this.cameras.main.shake(150, 0.007);
     this.sparkle(hero.x, hero.y - 90, 5, 'fx_star');
@@ -397,11 +473,14 @@ export default class PlayScene extends Phaser.Scene {
     }
 
     this.hp = 0;
+    this.stat.dist = Math.max(this.stat.dist, Math.floor(hero.box.x / 10));
     if (this.revives > 0) {
       this.revives--;
-      hero.down(() => { this.hp = REVIVE_HP; this.toast('한 번 더!'); });
+      hero.down(() => { this.hp = Math.round(this.hpMax * 0.5); sfx.revive(); this.toast('한 번 더!'); });
     } else {
       hero.gameOver();
+      stopMusic();
+      sfx.fail();
       this.finish(false);
     }
   }
@@ -434,13 +513,16 @@ export default class PlayScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(51);
 
     panel(this, 758, 14, 506, 78);
-    this.add.text(774, 24, `${this.stage.id}. ${this.stage.name}`, {
+    this.add.text(774, 24, this.endless ? '끝없이 달리기' : `${this.stage.id}. ${this.stage.name}`, {
       fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
     }).setScrollFactor(0).setDepth(51);
     this.progTrack = bar(this, 774, 46, 474, 26, 0xffd977);
     this.progTrack.draw(0);
     this.progIcon = this.add.image(780, 59, `base-${this.heroId}`)
       .setScale(0.05).setScrollFactor(0).setDepth(53);
+    this.distTxt = this.add.text(1248, 24, '0m', {
+      fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#8a6a56',
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(53);
     this.add.image(1240, 59, 'i_flag').setScale(0.1).setScrollFactor(0).setDepth(52);
 
     // 콤보
@@ -461,6 +543,23 @@ export default class PlayScene extends Phaser.Scene {
       [g, icon, b.back, b.fill].forEach((o) => o.setVisible(false));
       this.powerSlots.push(slot);
     }
+
+    // 이번 판 미션 세 개
+    this.missionUI = this.missions.map((m, i) => {
+      const y = H - 112 + i * 32;
+      const g = this.add.graphics().setScrollFactor(0).setDepth(50);
+      g.fillStyle(0xffffff, 0.86);
+      g.fillRoundedRect(W - 358, y, 344, 28, 10);
+      g.lineStyle(3, 0x7b5a48, 0.9);
+      g.strokeRoundedRect(W - 358, y, 344, 28, 10);
+      const t = this.add.text(W - 346, y + 5, m.text, {
+        fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#7b5a48',
+      }).setScrollFactor(0).setDepth(51);
+      const n = this.add.text(W - 24, y + 5, '', {
+        fontFamily: FONT, fontSize: '14px', fontStyle: '900', color: '#b08a4a',
+      }).setOrigin(1, 0).setScrollFactor(0).setDepth(51);
+      return { m, g, t, n, y };
+    });
 
     this.toastTxt = this.add.text(W / 2, 162, '', {
       fontFamily: FONT, fontSize: '42px', fontStyle: '900', color: '#ffffff',
@@ -501,9 +600,87 @@ export default class PlayScene extends Phaser.Scene {
     });
   }
 
+  // 미션 진행도를 올리고 달성하면 바로 알려 준다
+  tally(stat, n = 1) {
+    if (this.stat[stat] === undefined) return;
+    if (stat === 'bestCombo') this.stat.bestCombo = Math.max(this.stat.bestCombo, n);
+    else if (stat === 'dist') this.stat.dist = Math.max(this.stat.dist, n);
+    else this.stat[stat] += n;
+    for (const m of this.missions) {
+      if (m.done) continue;
+      m.got = this.stat[m.stat] || 0;
+      if (m.got >= m.need) {
+        m.done = true;
+        sfx.power();
+        this.missionToast(m);
+      }
+    }
+  }
+
+  missionToast(m) {
+    const y = 210 + this.missions.indexOf(m) * 6;
+    const g = this.add.container(W, y).setScrollFactor(0).setDepth(66);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x7b5a48, 0.25); bg.fillRoundedRect(3, 5, 430, 56, 16);
+    bg.fillStyle(0xffd977, 1); bg.fillRoundedRect(0, 0, 430, 56, 16);
+    bg.lineStyle(4, 0x7b5a48, 1); bg.strokeRoundedRect(0, 0, 430, 56, 16);
+    const t1 = this.add.text(18, 10, '미션 완료', {
+      fontFamily: FONT, fontSize: '12px', fontStyle: '900', color: '#b07a20',
+    });
+    const t2 = this.add.text(18, 26, m.text, {
+      fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#6b4a3a',
+    });
+    const st = this.add.text(408, 28, '★'.repeat(m.star), {
+      fontFamily: FONT, fontSize: '20px', fontStyle: '900', color: '#ff9f1c',
+    }).setOrigin(1, 0.5);
+    g.add([bg, t1, t2, st]);
+    this.tweens.add({ targets: g, x: W - 452, duration: 380, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: g, x: W + 20, delay: 2200, duration: 340,
+      onComplete: () => g.destroy(),
+    });
+  }
+
+  // 거리를 넘길 때마다 한 번씩 띄운다
+  checkMilestone() {
+    const m = Math.floor(this.hero.box.x / 10);
+    const next = (this.milestone + 1) * 500;
+    if (m < next) return;
+    this.milestone++;
+    this.addScore(300 * this.milestone);
+    sfx.goal();
+    const t = this.add.text(W / 2, 250, `${next}m 돌파!`, {
+      fontFamily: FONT, fontSize: '52px', fontStyle: '900', color: '#ffffff',
+      stroke: '#ff9f1c', strokeThickness: 10,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(66).setScale(0.6);
+    this.tweens.add({ targets: t, scale: 1, duration: 260, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: t, alpha: 0, y: 210, delay: 900, duration: 420,
+      onComplete: () => t.destroy(),
+    });
+    for (let i = 0; i < 3; i++) {
+      this.time.delayedCall(i * 110, () => this.sparkle(
+        W / 2 + (Math.random() - 0.5) * 320 + this.cameras.main.scrollX,
+        250 + (Math.random() - 0.5) * 80, 6, 'fx_star'));
+    }
+  }
+
+  // 최고 기록을 넘기는 순간
+  checkBest() {
+    if (this.beatBest) return;
+    const best = this.endless ? load().bestDist : (load().best[this.stage.id] || 0);
+    const cur = this.endless ? Math.floor(this.hero.box.x / 10) : this.score;
+    if (!best || cur <= best) return;
+    this.beatBest = true;
+    sfx.power();
+    this.toast('최고 기록 넘었어요!');
+    this.cameras.main.flash(260, 255, 240, 190);
+  }
+
   bumpCombo(now) {
     this.combo = now < this.comboUntil ? this.combo + 1 : 1;
     this.comboUntil = now + 1500;
+    this.tally('bestCombo', this.combo);
     if (this.combo < 3) return 1;
     const mul = 1 + Math.min(this.combo, 20) * 0.1;
     this.comboTxt.setText(`${this.combo} 연속  ×${mul.toFixed(1)}`)
@@ -599,13 +776,14 @@ export default class PlayScene extends Phaser.Scene {
       down: Phaser.Input.Keyboard.KeyCodes.DOWN,
       shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
     });
-    const press = () => { if (!this.over) this.hero.jumpPressed(this.time.now); };
+    const press = () => { unlock(); if (!this.over) this.hero.jumpPressed(this.time.now); };
     const release = () => this.hero.jumpReleased();
     k.on('keydown-SPACE', press);
     k.on('keydown-UP', press);
     k.on('keyup-SPACE', release);
     k.on('keyup-UP', release);
-    k.on('keydown-ESC', () => this.scene.start('Stage'));
+    k.on('keydown-ESC', () => { stopMusic(); this.scene.start('Stage'); });
+    k.on('keydown-M', () => { setMuted(!isMuted()); this.toast(isMuted() ? '소리 끔' : '소리 켬'); });
 
     this.touchSlide = false;
     this.input.on('pointerdown', (p) => {
@@ -637,6 +815,7 @@ export default class PlayScene extends Phaser.Scene {
     const grounded = hero.body.blocked.down || hero.body.touching.down;
     if (grounded && !this.wasGround && !hero.locked) {
       hero.playOnce('land');
+      sfx.land();
       this.puff(hero.x, hero.y);
       hero.stompChain = 0;
     }
@@ -646,6 +825,8 @@ export default class PlayScene extends Phaser.Scene {
     this.camX = Phaser.Math.Linear(this.camX, want, 0.2);
     scrollTo(this, this.camX);
 
+    if (this.endless) this.ensureAhead(hero.box.x);
+    this.countSlidePass();
     this.updateEnemies(time);
     this.updateTokens(time);
     this.updatePet(time, delta);
@@ -655,17 +836,32 @@ export default class PlayScene extends Phaser.Scene {
     // 더 늦게 잡으면 달리던 관성으로 지면 타일 밑에 들어가 점프해도 머리가 막힌다.
     if (hero.box.y > FALL_Y && !hero.locked && !this.over) this.fallOut();
 
-    if (!this.won && hero.box.x >= this.goalX) this.reachGoal();
+    if (!this.endless && !this.won && hero.box.x >= this.goalX) this.reachGoal();
 
     this.updateShadow();
     this.updatePowerSlots(time);
-    this.hpBar.draw(this.hp / HP_MAX);
+    this.missionUI.forEach((u) => {
+      if (u.m.done) {
+        u.n.setText('★'.repeat(u.m.star)).setColor('#ff9f1c');
+        u.t.setColor('#b9a594');
+      } else if (u.m.need > 1) {
+        u.n.setText(`${Math.min(u.m.got, u.m.need)}/${u.m.need}`);
+      }
+    });
+    this.hpBar.draw(this.hp / this.hpMax);
     this.tokenTxt.setText(String(this.tokenCount));
     this.badge.setText(this.revives > 0 ? '부활 1회 남음' : '부활 없음');
     const p = Phaser.Math.Clamp(hero.box.x / this.goalX, 0, 1);
+    const dist = Math.floor(hero.box.x / 10);
+    this.distTxt.setText(`${dist}m`);
+    this.tally('dist', dist);
+    this.checkMilestone();
+    this.checkBest();
     this.progTrack.draw(p);
     this.progIcon.x = 780 + 462 * p;
   }
+
+  onDoubleJump() { this.tally('doubles'); }
 
   // 구멍에 빠졌을 때 — 체력을 깎고 마지막으로 디딘 자리에서 이어 달린다
   fallOut() {
@@ -684,6 +880,8 @@ export default class PlayScene extends Phaser.Scene {
     this.won = true;
     const hero = this.hero;
     hero.victory();
+    stopMusic();
+    sfx.goal();
     this.pet.play(`${this.petId}-pet_cheer`);
     if (this.stage.rescue && this.zz) {
       this.toast('쭈일리언 구출!');
@@ -730,6 +928,19 @@ export default class PlayScene extends Phaser.Scene {
       hero.jumpPressed(time);
       this.time.delayedCall(160, () => hero.jumpReleased());
     }
+  }
+
+  // 매달린 것을 슬라이드로 지나쳤는지 센다
+  countSlidePass() {
+    const hero = this.hero;
+    this.G.hazards.children.iterate((o) => {
+      if (!o || !o.active || o.getData('kind') !== 'hang') return;
+      if (o.getData('passed')) return;
+      if (hero.box.x > o.x + 40) {
+        o.setData('passed', true);
+        if (hero.sliding || hero.box.y < o.y) this.tally('slides');
+      }
+    });
   }
 
   updateEnemies(time) {
@@ -797,7 +1008,10 @@ export default class PlayScene extends Phaser.Scene {
     this.time.delayedCall(460, () => {
       this.scene.start('Result', {
         cleared, score: this.score, tokens: this.tokenCount,
-        heroId: this.heroId, petId: this.petId, stageId: this.stage.id,
+        heroId: this.heroId, petId: this.petId,
+        stageId: this.endless ? 'endless' : this.stage.id,
+        missions: this.missions.map((m) => ({ ...m })),
+        dist: Math.max(this.stat.dist, Math.floor(this.hero.box.x / 10)),
       });
     });
   }

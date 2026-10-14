@@ -32,7 +32,7 @@ export const REVIVE_HP = 50;
 export const INVULN_MS = 1600;
 
 export const BOOST_MS = 3000;
-export const GIANT_MS = 6000;
+export const GIANT_MS = 3800;
 export const MAGNET_MS = 7000;
 export const SLIP_MS = 700;
 export const STUN_MS = 900;

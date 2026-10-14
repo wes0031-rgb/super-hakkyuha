@@ -3,6 +3,7 @@ import { PLAYABLE } from '../data/characters.js';
 import { makeGradient } from '../level/textures.js';
 
 import { setupCamera } from '../hidpi.js';
+import { unlock, sfx } from '../audio.js';
 import { button } from '../ui.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
@@ -12,6 +13,7 @@ export default class TitleScene extends Phaser.Scene {
 
   create() {
     setupCamera(this);
+    this.input.on('pointerdown', () => { unlock(); sfx.click(); });
     makeGradient(this, 'sky_title', W, H, '#ffd9e8', '#eafbe9');
     this.add.image(0, 0, 'sky_title').setOrigin(0, 0).setDepth(-20);
 

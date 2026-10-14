@@ -1,9 +1,12 @@
 import { W, H } from '../config.js';
 import { STAGES } from '../data/stages.js';
 import { makeGradient } from '../level/textures.js';
-import { load, maxOpen } from '../save.js';
+import { load, maxOpen, endlessOpen } from '../save.js';
+import { byId } from '../data/characters.js';
+import { button } from '../ui.js';
 
 import { setupCamera } from '../hidpi.js';
+import { unlock, sfx } from '../audio.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -12,6 +15,7 @@ export default class StageScene extends Phaser.Scene {
 
   create() {
     setupCamera(this);
+    this.input.on('pointerdown', () => { unlock(); sfx.click(); });
     this.shadowG = this.add.graphics().setDepth(-5);
     const data = load();
     const open = maxOpen();
@@ -25,16 +29,17 @@ export default class StageScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '46px', fontStyle: '900', color: '#ffffff',
       stroke: '#7b5a48', strokeThickness: 9,
     }).setOrigin(0.5);
-    this.add.text(W / 2, 102, '스테이지를 깰 때마다 그 캐릭터가 펫으로 따라와요', {
+    this.add.text(W / 2, 100, '스테이지를 깰 때마다 그 캐릭터가 펫으로 따라와요', {
       fontFamily: FONT, fontSize: '18px', color: '#8a6a56',
     }).setOrigin(0.5);
 
-    const CWd = 212, CHt = 268, GX = 18;
-    const x0 = W / 2 - (STAGES.length * CWd + (STAGES.length - 1) * GX) / 2;
+    const CWd = 186, CHt = 254, GX = 14;
+    const COUNT = STAGES.length + 1;
+    const x0 = W / 2 - (COUNT * CWd + (COUNT - 1) * GX) / 2;
 
     STAGES.forEach((s, i) => {
       const cx = x0 + i * (CWd + GX) + CWd / 2;
-      const cy = 300;
+      const cy = 272;
       const locked = s.id > open;
       const cleared = data.cleared.includes(s.id);
 
@@ -44,29 +49,29 @@ export default class StageScene extends Phaser.Scene {
         .setStrokeStyle(5, locked ? 0x6b5f85 : 0x7b5a48);
 
       const tileKey = { forest: 'forest-ground', dessert: 'dessert-ground', sky: 'sky-ground', night: 'night-ground' }[s.theme];
-      const th = this.add.image(cx, cy - 66, tileKey).setScale(0.62);
+      const th = this.add.image(cx, cy - 62, tileKey).setScale(0.55);
       if (locked) th.setTint(0x9b93ad);
 
-      this.add.text(cx, cy - 6, `${s.id}`, {
-        fontFamily: FONT, fontSize: '40px', fontStyle: '900',
+      this.add.text(cx, cy - 8, `${s.id}`, {
+        fontFamily: FONT, fontSize: '36px', fontStyle: '900',
         color: locked ? '#6b5f85' : '#ffd977', stroke: '#7b5a48', strokeThickness: 7,
       }).setOrigin(0.5);
-      this.add.text(cx, cy + 36, s.name, {
-        fontFamily: FONT, fontSize: '21px', fontStyle: '900',
+      this.add.text(cx, cy + 30, s.name, {
+        fontFamily: FONT, fontSize: '19px', fontStyle: '900',
         color: locked ? '#6b5f85' : '#6b4a3a',
       }).setOrigin(0.5);
-      this.add.text(cx, cy + 62, locked ? '앞 스테이지를 깨면 열려요' : s.hint, {
-        fontFamily: FONT, fontSize: '13px', color: '#9a7b68',
-        wordWrap: { width: CWd - 30 }, align: 'center',
+      this.add.text(cx, cy + 56, locked ? '앞 스테이지를 깨면 열려요' : s.hint, {
+        fontFamily: FONT, fontSize: '12px', color: '#9a7b68',
+        wordWrap: { width: CWd - 26 }, align: 'center',
       }).setOrigin(0.5);
 
       if (cleared) {
-        this.add.text(cx, cy + 100, `최고 ${String(data.best[s.id] || 0).padStart(6, '0')}`, {
-          fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#7b5a48',
-          backgroundColor: '#ffd977', padding: { x: 10, y: 4 },
+        this.add.text(cx, cy + 94, `최고 ${String(data.best[s.id] || 0).padStart(6, '0')}`, {
+          fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#7b5a48',
+          backgroundColor: '#ffd977', padding: { x: 9, y: 4 },
         }).setOrigin(0.5);
       } else if (!locked) {
-        this.add.text(cx, cy + 100, '도전!', {
+        this.add.text(cx, cy + 94, '도전!', {
           fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#ffffff',
           backgroundColor: '#ff7fa4', padding: { x: 14, y: 4 },
         }).setOrigin(0.5);
@@ -79,20 +84,87 @@ export default class StageScene extends Phaser.Scene {
       box.on('pointerup', () => this.scene.start('Select', { stageId: s.id }));
     });
 
-    // 모은 펫
-    this.add.text(W / 2, 486, `모은 펫 ${data.pets.length}`, {
-      fontFamily: FONT, fontSize: '17px', color: '#8a6a56',
-    }).setOrigin(0.5);
-    data.pets.forEach((id, i) => {
-      const x = W / 2 + (i - (data.pets.length - 1) / 2) * 92;
-      this.add.image(x, 560, `base-${id}`).setOrigin(0.5, 1).setScale(0.16);
+    // 끝없이 달리기
+    {
+      const i = STAGES.length;
+      const cx = x0 + i * (CWd + GX) + CWd / 2;
+      const cy = 272;
+      const open2 = endlessOpen();
+      this.shadowG.fillStyle(0x7b5a48, 0.25);
+      this.shadowG.fillRoundedRect(cx - CWd / 2 + 4, cy - CHt / 2 + 8, CWd, CHt, 20);
+      const box = this.add.rectangle(cx, cy, CWd, CHt, open2 ? 0xfff3d4 : 0xded6e8)
+        .setStrokeStyle(5, open2 ? 0xffb340 : 0x6b5f85);
+      this.add.text(cx, cy - 62, '∞', {
+        fontFamily: FONT, fontSize: '58px', fontStyle: '900',
+        color: open2 ? '#ffb340' : '#9b93ad',
+      }).setOrigin(0.5);
+      this.add.text(cx, cy + 30, '끝없이 달리기', {
+        fontFamily: FONT, fontSize: '19px', fontStyle: '900',
+        color: open2 ? '#6b4a3a' : '#6b5f85',
+      }).setOrigin(0.5);
+      this.add.text(cx, cy + 56, open2 ? '어디까지 갈 수 있을까요' : '1 스테이지를 깨면 열려요', {
+        fontFamily: FONT, fontSize: '12px', color: '#9a7b68',
+        wordWrap: { width: CWd - 26 }, align: 'center',
+      }).setOrigin(0.5);
+      if (open2) {
+        this.add.text(cx, cy + 94, `최고 ${data.bestDist}m`, {
+          fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#7b5a48',
+          backgroundColor: '#ffd977', padding: { x: 9, y: 4 },
+        }).setOrigin(0.5);
+        box.setInteractive({ useHandCursor: true });
+        box.on('pointerover', () => box.setStrokeStyle(5, 0xff7fa4));
+        box.on('pointerout', () => box.setStrokeStyle(5, 0xffb340));
+        box.on('pointerup', () => this.scene.start('Select', { stageId: 'endless' }));
+      }
+    }
+
+    // 지금 데리고 갈 하뀨하 — 여기서 바로 바꿀 수 있다
+    const hero = byId(data.lastHero) || byId('jjujebi');
+    const pet = byId(data.lastPet) || byId('palabella');
+
+    // 그림은 왼쪽, 이름은 그 옆에 세로로 — 글자가 박스를 넘지 않게
+    const BX = W / 2 - 316, BY = 440, BW = 632, BH = 130;
+    this.shadowG.fillStyle(0x7b5a48, 0.2);
+    this.shadowG.fillRoundedRect(BX + 4, BY + 7, BW, BH, 20);
+    this.add.rectangle(W / 2, BY + BH / 2, BW, BH, 0xfffaf4).setStrokeStyle(5, 0x7b5a48);
+
+    this.add.text(BX + 24, BY + 14, '지금 함께 가는 하뀨하', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: '900', color: '#9a7b68',
     });
 
-    const back = this.add.rectangle(W / 2, 650, 240, 60, 0xffffff)
-      .setStrokeStyle(5, 0x7b5a48).setInteractive({ useHandCursor: true });
-    this.add.text(W / 2, 650, '타이틀로', {
-      fontFamily: FONT, fontSize: '22px', fontStyle: '900', color: '#6b4a3a',
+    const base = BY + BH - 16;
+    this.add.image(BX + 72, base, `base-${hero.id}`).setOrigin(0.5, 1).setScale(0.135);
+    this.add.text(BX + 116, BY + 56, hero.name, {
+      fontFamily: FONT, fontSize: '20px', fontStyle: '900', color: '#6b4a3a',
+    });
+    this.add.image(BX + 126, BY + 96, `tok-${hero.token}`).setScale(0.1);
+    this.add.text(BX + 146, BY + 86, '모으는 것', {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+    });
+
+    this.add.text(BX + 244, BY + 68, '＋', {
+      fontFamily: FONT, fontSize: '26px', fontStyle: '900', color: '#c8b6a4',
     }).setOrigin(0.5);
-    back.on('pointerup', () => this.scene.start('Title'));
+
+    this.add.image(BX + 300, base, `base-${pet.id}`).setOrigin(0.5, 1).setScale(0.105);
+    this.add.text(BX + 336, BY + 60, pet.name, {
+      fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#6b4a3a',
+    });
+    this.add.text(BX + 336, BY + 84, `펫 · 모은 펫 ${data.pets.length}`, {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+    });
+
+    button(this, BX + BW - 118, BY + BH / 2, 196, 62, '바꾸기', () => {
+      this.scene.start('Select', { stageId: Math.min(open, 5) });
+    }, { size: '21px', fill: 0xffffff, hover: 0xfff2d0 });
+
+    this.add.text(BX + 24, BY + BH + 22, `★ ${data.stars}   ·   모은 것 ${data.bank.toLocaleString()}개`, {
+      fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#7b5a48',
+    });
+
+    button(this, W / 2 + 86, BY + BH + 34, 230, 54, '올리러 가기',
+      () => this.scene.start('Shop'), { size: '19px' });
+    button(this, W / 2 + 330, BY + BH + 34, 200, 54, '타이틀로',
+      () => this.scene.start('Title'), { size: '19px', fill: 0xffffff, hover: 0xfff2d0 });
   }
 }

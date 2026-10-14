@@ -2,9 +2,10 @@ import { W, H } from '../config.js';
 import { byId } from '../data/characters.js';
 import { byStage, STAGES } from '../data/stages.js';
 import { makeGradient } from '../level/textures.js';
-import { clearStage } from '../save.js';
+import { finishRun, load } from '../save.js';
 
 import { setupCamera } from '../hidpi.js';
+import { unlock, sfx } from '../audio.js';
 import { button, panel } from '../ui.js';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
@@ -12,78 +13,159 @@ const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 export default class ResultScene extends Phaser.Scene {
   constructor() { super('Result'); }
 
-  init(d) { this.d = d; }
+  init(d) {
+    this.d = d && d.heroId ? d : {
+      cleared: true, score: 12340, tokens: 42, dist: 980,
+      heroId: 'jjujebi', petId: 'palabella', stageId: 1,
+      missions: [
+        { id: 'a', text: '모으는 것 20개 줍기', star: 1, done: true, got: 42, need: 20 },
+        { id: 'b', text: '적 12마리 밟기', star: 2, done: false, got: 7, need: 12 },
+        { id: 'c', text: '한 번도 안 맞고 끝까지 가기', star: 3, done: false, got: 0, need: 1 },
+      ],
+    };
+  }
 
   create() {
     setupCamera(this);
-    const { cleared, score, tokens, heroId, stageId } = this.d;
+    this.input.on('pointerdown', () => { unlock(); sfx.click(); });
+
+    const { cleared, score, tokens, heroId, stageId, missions = [], dist = 0 } = this.d;
+    const endless = stageId === 'endless';
     const char = byId(heroId);
-    const stage = byStage(stageId);
-    const news = cleared ? clearStage(stageId, heroId, score) : [];
+    const stage = endless ? { name: '끝없이 달리기' } : byStage(stageId);
+    const prev = load();
+    const before = endless ? prev.bestDist : (prev.best[stageId] || 0);
+    const r = finishRun({ stageId, heroId, score, tokens, missions, cleared, dist });
+    const news = r.news;
+    const gotStars = r.gotStars;
+    const cur = endless ? dist : score;
+    const isNewBest = cur > before && before > 0;
 
-    const key = cleared ? 'sky_win' : 'sky_lose';
-    makeGradient(this, key, W, H, cleared ? '#ffd9e8' : '#6b6080', cleared ? '#eafbe9' : '#cfc7dd');
+    const key = cleared || endless ? 'sky_win' : 'sky_lose';
+    makeGradient(this, key, W, H,
+      cleared || endless ? '#ffd9e8' : '#6b6080',
+      cleared || endless ? '#eafbe9' : '#cfc7dd');
     this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-20);
-    this.add.image(160, 110, 'bg_cloud').setScale(1.0).setAlpha(cleared ? 1 : 0.5);
-    this.add.image(1080, 90, 'bg_cloud').setScale(0.85).setAlpha(cleared ? 1 : 0.5);
+    this.add.image(150, 96, 'bg_cloud').setScale(0.85).setAlpha(cleared || endless ? 1 : 0.5);
+    this.add.image(1110, 78, 'bg_cloud').setScale(0.7).setAlpha(cleared || endless ? 1 : 0.5);
 
-    this.add.text(W / 2, 86, cleared ? `${stage.name} 클리어!` : '다시 가 볼까요', {
-      fontFamily: FONT, fontSize: '56px', fontStyle: '900', color: '#ffffff',
-      stroke: cleared ? '#7b5a48' : '#4c4160', strokeThickness: 12,
+    const title = endless ? `${dist}m 달렸어요`
+      : (cleared ? `${stage.name} 클리어!` : '다시 가 볼까요');
+    this.add.text(W / 2, 62, title, {
+      fontFamily: FONT, fontSize: '48px', fontStyle: '900', color: '#ffffff',
+      stroke: cleared || endless ? '#7b5a48' : '#4c4160', strokeThickness: 11,
     }).setOrigin(0.5);
 
-    this.add.image(W / 2, 320, `base-${heroId}`).setOrigin(0.5, 1).setScale(0.3);
+    this.add.image(W / 2, 236, `base-${heroId}`).setOrigin(0.5, 1).setScale(0.21);
+    this.add.text(W / 2, 240, `${char.name} · ${char.skill}`, {
+      fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#8a6a56',
+    }).setOrigin(0.5, 0);
 
-    panel(this, W / 2 - 280, 341, 560, 118, { fixed: false, depth: 1 });
-    this.add.text(W / 2 - 240, 362, '점수', {
-      fontFamily: FONT, fontSize: '17px', color: '#9a7b68',
+    // 점수
+    let y = 272;
+    panel(this, W / 2 - 300, y, 600, 92, { fixed: false, depth: -2 });
+    this.add.text(W / 2 - 276, y + 14, endless ? '달린 거리' : '점수', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#9a7b68',
     });
-    this.add.text(W / 2 - 240, 382, String(score).padStart(6, '0'), {
-      fontFamily: FONT, fontSize: '38px', fontStyle: '900', color: '#6b4a3a',
+    this.add.text(W / 2 - 276, y + 34, endless ? `${dist}m` : String(score).padStart(6, '0'), {
+      fontFamily: FONT, fontSize: '34px', fontStyle: '900', color: '#6b4a3a',
     });
-    this.add.image(W / 2 + 90, 398, `tok-${char.token}`).setScale(0.16);
-    this.add.text(W / 2 + 120, 376, `${tokens}개`, {
-      fontFamily: FONT, fontSize: '32px', fontStyle: '900', color: '#6b4a3a',
+    this.add.image(W / 2 + 92, y + 50, `tok-${char.token}`).setScale(0.13);
+    this.add.text(W / 2 + 116, y + 32, `${tokens}개`, {
+      fontFamily: FONT, fontSize: '28px', fontStyle: '900', color: '#6b4a3a',
     });
+    if (isNewBest) {
+      const nb = this.add.text(W / 2 + 230, y + 46, '최고 기록!', {
+        fontFamily: FONT, fontSize: '19px', fontStyle: '900', color: '#ffffff',
+        stroke: '#e2577f', strokeThickness: 7,
+      }).setOrigin(0.5);
+      this.tweens.add({ targets: nb, scale: 1.12, duration: 420, yoyo: true, repeat: -1 });
+    } else if (before > 0) {
+      const gap = before - cur;
+      this.add.text(W / 2 + 230, y + 46,
+        gap > 0
+          ? (endless ? `최고까지 ${gap}m` : `최고까지 ${gap.toLocaleString()}점`)
+          : '최고 기록과 같아요', {
+          fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#9a7b68',
+        }).setOrigin(0.5);
+    }
+    y += 104;
+
+    // 미션
+    if (missions.length) {
+      const h = 34 + missions.length * 22;
+      panel(this, W / 2 - 300, y, 600, h, { fixed: false, depth: -2 });
+      this.add.text(W / 2 - 278, y + 10, gotStars ? `미션 · 별 ${gotStars}개 받았어요` : '미션', {
+        fontFamily: FONT, fontSize: '14px', fontStyle: '900',
+        color: gotStars ? '#b07a20' : '#9a7b68',
+      });
+      missions.forEach((m, i) => {
+        const my = y + 32 + i * 22;
+        this.add.text(W / 2 - 278, my, m.done ? '★' : '○', {
+          fontFamily: FONT, fontSize: '15px', fontStyle: '900',
+          color: m.done ? '#ff9f1c' : '#c8b6a4',
+        });
+        this.add.text(W / 2 - 254, my, m.text, {
+          fontFamily: FONT, fontSize: '14px', fontStyle: '700',
+          color: m.done ? '#6b4a3a' : '#a89684',
+        });
+        if (!m.done && m.need > 1) {
+          this.add.text(W / 2 + 278, my, `${Math.min(m.got, m.need)}/${m.need}`, {
+            fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#b9a594',
+          }).setOrigin(1, 0);
+        }
+      });
+      y += h + 12;
+    }
 
     // 새로 들어온 펫
     if (news.length) {
-      const y = 492;
-      panel(this, W / 2 - 310, y - 48, 620, 96,
-        { fill: 0xfff3d4, line: 0xffb340, fixed: false, depth: 1 });
-      this.add.text(W / 2 - 280, y - 30, '펫이 늘었어요', {
-        fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#b07a20',
+      const h = 76;
+      panel(this, W / 2 - 300, y, 600, h,
+        { fill: 0xfff3d4, line: 0xffb340, fixed: false, depth: -2 });
+      this.add.text(W / 2 - 278, y + 9, '펫이 늘었어요', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: '900', color: '#b07a20',
       });
       news.forEach((id, i) => {
-        const x = W / 2 - 240 + i * 120;
-        const s = this.add.image(x, y + 28, `base-${id}`).setOrigin(0.5, 1).setScale(0.14);
-        this.add.text(x, y + 34, byId(id).name, {
-          fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#7b5a48',
-        }).setOrigin(0.5, 0);
+        const x = W / 2 - 272 + i * 230;
+        const s2 = this.add.image(x + 22, y + h - 8, `base-${id}`)
+          .setOrigin(0.5, 1).setScale(0.085);
+        this.add.text(x + 58, y + 28, byId(id).name, {
+          fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#7b5a48',
+        });
+        this.add.text(x + 58, y + 50, '펫으로 데려갈 수 있어요', {
+          fontFamily: FONT, fontSize: '11px', fontStyle: '700', color: '#b08a4a',
+        });
         this.tweens.add({
-          targets: s, y: y + 20, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+          targets: s2, y: y + h - 14, duration: 540, yoyo: true,
+          repeat: -1, ease: 'Sine.easeInOut',
         });
       });
       if (news.includes('zzulien')) {
-        this.add.text(W / 2 + 60, y - 10, '쭈일리언을 구해 냈어요!\n이제 펫으로 데리고 다닐 수 있어요', {
-          fontFamily: FONT, fontSize: '16px', fontStyle: '700', color: '#8f6bbf', lineSpacing: 4,
-        }).setOrigin(0, 0.5);
+        this.add.text(W / 2 + 278, y + h / 2, '쭈일리언을 구해 냈어요!', {
+          fontFamily: FONT, fontSize: '15px', fontStyle: '900', color: '#8f6bbf',
+        }).setOrigin(1, 0.5);
       }
+      y += h + 12;
     }
 
-    const next = STAGES.find((s) => s.id === stageId + 1);
-    const y0 = news.length ? 606 : 560;
+    const next = endless ? null : STAGES.find((st) => st.id === stageId + 1);
+    const y0 = Math.min(Math.max(y + 34, 600), H - 56);
     if (cleared && next) {
-      this.btn(W / 2 - 170, y0, `다음 · ${next.name}`, () => this.scene.start('Select', { stageId: next.id }));
+      this.btn(W / 2 - 312, y0, `다음 · ${next.name}`, 268,
+        () => this.scene.start('Play', { ...this.d, stageId: next.id }));
+      this.btn(W / 2, y0, '다시 하기', 268, () => this.scene.start('Play', this.d));
+      this.btn(W / 2 + 312, y0, '스테이지', 268, () => this.scene.start('Stage'));
     } else {
-      this.btn(W / 2 - 170, y0, '다시 하기', () => this.scene.start('Play', this.d));
+      this.btn(W / 2 - 160, y0, '다시 하기', 296, () => this.scene.start('Play', this.d));
+      this.btn(W / 2 + 160, y0, '스테이지 고르기', 296, () => this.scene.start('Stage'));
     }
-    this.btn(W / 2 + 170, y0, '스테이지 고르기', () => this.scene.start('Stage'));
 
-    this.input.keyboard.once('keydown-SPACE', () => this.scene.start('Stage'));
+    this.input.keyboard.once('keydown-SPACE', () => this.scene.start('Play', this.d));
+    this.input.keyboard.once('keydown-R', () => this.scene.start('Play', this.d));
   }
 
-  btn(x, y, label, fn) {
-    button(this, x, y, 300, 62, label, fn, { size: '22px' });
+  btn(x, y, label, w, fn) {
+    button(this, x, y, w, 62, label, fn, { size: w > 280 ? '22px' : '20px' });
   }
 }

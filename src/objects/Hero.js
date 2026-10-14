@@ -1,3 +1,4 @@
+import { sfx } from '../audio.js';
 import {
   HERO_W, HERO_H, HERO_SLIDE_H, JUMP_V, JUMP2_V, JUMP_CUT, SPRING_V,
   COYOTE_MS, BUFFER_MS, SPEED_MIN, SPEED_MAX, SPEED_RAMP,
@@ -106,6 +107,7 @@ export default class Hero {
       this.lastJumpPress = -9999;
       this.setSlide(false);
       this.play('jump', true);
+      sfx.jump();
       this.scene.puff(this.x, this.y);
       return true;
     }
@@ -114,6 +116,7 @@ export default class Hero {
       this.body.setVelocityY(-JUMP2_V * (this.stats.air || 1));
       this.lastJumpPress = -9999;
       this.play('double_jump', true);
+      sfx.double();
       this.scene.sparkle(this.x, this.y - 60);
       return true;
     }
@@ -184,9 +187,15 @@ export default class Hero {
     this.playOnce('start_dash', () => { this.locked = false; if (then) then(); });
   }
 
-  giveBoost(now) { this.boostUntil = now + BOOST_MS * (this.stats.boost || 1); }
-  giveGiant(now) { this.giantUntil = now + GIANT_MS; }
-  giveMagnet(now) { this.magnetUntil = now + MAGNET_MS; }
+  giveBoost(now) {
+    const ms = (this.up && this.up.boostMs) || BOOST_MS;
+    this.boostUntil = now + ms * (this.stats.boost || 1);
+  }
+  giveGiant(now) {
+    this.giantUntil = now + ((this.up && this.up.giantMs) || GIANT_MS);
+    this.giantFrom = now;
+  }
+  giveMagnet(now) { this.magnetUntil = now + ((this.up && this.up.magnetMs) || MAGNET_MS); }
   giveShield() { this.shield = true; }
   giveDouble() { this.bonusAir = 1; }
 
@@ -212,8 +221,9 @@ export default class Hero {
       const busy = ['stomp', 'head_bump', 'hit', 'land', 'spring_jump', 'power_up', 'slip']
         .includes(this.state) && this.art.anims.isPlaying;
       if (!busy) {
+        const justGiant = this.giant && now - (this.giantFrom || 0) < 1100;
         if (this.stunned) this.play('stun');
-        else if (this.giant) this.play('giant');
+        else if (justGiant) this.play('giant');
         else if (this.boosting) this.play('boost');
         else if (!grounded) {
           const v = this.body.velocity.y;
@@ -228,7 +238,7 @@ export default class Hero {
 
     this.art.x = this.box.x;
     this.art.y = this.box.y;
-    this.art.setScale(this.giant ? 1.4 : 1);
+    this.art.setScale(this.giant ? 1.35 : 1);
 
     const flashing = now < this.invulnUntil && !this.boosting && !this.giant;
     this.art.setAlpha(flashing && Math.floor(now / 70) % 2 ? 0.35 : 1);

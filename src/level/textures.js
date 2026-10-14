@@ -89,33 +89,33 @@ export function buildTextures(scene) {
   gr.generateTexture('bg_far', 600, 220);
   gr.destroy();
 
-  // 나무
+  // 나무 — 잎이 캔버스를 넘지 않게 여백을 둔다
   gr = g(scene);
-  gr.fillStyle(0xc9a17a, 1).fillRoundedRect(44, 108, 22, 60, 8);
-  gr.lineStyle(5, INK, 1).strokeRoundedRect(44, 108, 22, 60, 8);
+  gr.fillStyle(0xc9a17a, 1).fillRoundedRect(69, 116, 22, 62, 8);
+  gr.lineStyle(5, INK, 1).strokeRoundedRect(69, 116, 22, 62, 8);
   gr.fillStyle(0xffffff, 1);
-  gr.fillCircle(55, 70, 44);
-  gr.fillCircle(26, 92, 30);
-  gr.fillCircle(84, 92, 30);
+  gr.fillCircle(80, 74, 44);
+  gr.fillCircle(48, 98, 30);
+  gr.fillCircle(112, 98, 30);
   gr.lineStyle(5, INK, 1);
-  gr.strokeCircle(55, 70, 44);
-  gr.strokeCircle(26, 92, 30);
-  gr.strokeCircle(84, 92, 30);
-  gr.generateTexture('bg_tree', 112, 172);
+  gr.strokeCircle(80, 74, 44);
+  gr.strokeCircle(48, 98, 30);
+  gr.strokeCircle(112, 98, 30);
+  gr.generateTexture('bg_tree', 160, 182);
   gr.destroy();
 
   // 덤불
   gr = g(scene);
   gr.fillStyle(0xffffff, 1);
-  gr.fillCircle(30, 42, 26);
-  gr.fillCircle(62, 34, 32);
-  gr.fillCircle(94, 44, 24);
-  gr.fillRect(30, 44, 64, 24);
+  gr.fillCircle(40, 46, 26);
+  gr.fillCircle(72, 38, 32);
+  gr.fillCircle(104, 48, 24);
+  gr.fillRect(40, 48, 64, 26);
   gr.lineStyle(5, INK, 1);
-  gr.strokeCircle(30, 42, 26);
-  gr.strokeCircle(62, 34, 32);
-  gr.strokeCircle(94, 44, 24);
-  gr.generateTexture('bg_bush', 124, 70);
+  gr.strokeCircle(40, 46, 26);
+  gr.strokeCircle(72, 38, 32);
+  gr.strokeCircle(104, 48, 24);
+  gr.generateTexture('bg_bush', 144, 78);
   gr.destroy();
 
   // 달
