@@ -2,7 +2,7 @@ import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
   HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE,
 } from '../config.js';
-import { byId, MOTIONS, PET_MOTIONS } from '../data/characters.js';
+import { byId, MOTIONS } from '../data/characters.js';
 import { byStage, STAGES } from '../data/stages.js';
 import { rollMissions } from '../data/missions.js';
 import { load, lv } from '../save.js';
@@ -22,7 +22,6 @@ export default class PlayScene extends Phaser.Scene {
 
   init(data) {
     this.heroId = data.heroId;
-    this.petId = data.petId;
     this.endless = data.stageId === 'endless';
     this.stage = this.endless
       ? { id: 'endless', name: '끝없이 달리기', theme: 'forest', chunks: 0,
@@ -73,8 +72,7 @@ export default class PlayScene extends Phaser.Scene {
       }
     };
     load(this.heroId, list0);
-    load(this.petId, this.lite ? ['pet_follow'] : PET_MOTIONS);
-    if (this.stage.rescue) load('zzulien', ['pet_follow']);
+    if (this.stage.rescue) load('zzulien', ['idle']);
   }
 
   makeAnims(id, list) {
@@ -95,8 +93,7 @@ export default class PlayScene extends Phaser.Scene {
   create() {
     const list0 = this.lite ? ['idle', 'run', 'jump', 'land'] : MOTIONS;
     this.makeAnims(this.heroId, list0);
-    this.makeAnims(this.petId, this.lite ? ['pet_follow'] : PET_MOTIONS);
-    if (this.stage.rescue) this.makeAnims('zzulien', ['pet_follow']);
+    if (this.stage.rescue) this.makeAnims('zzulien', ['idle']);
 
     if (this.endless) {
       this.G = makeGroups(this);
@@ -114,7 +111,7 @@ export default class PlayScene extends Phaser.Scene {
       this.goalX = goalX;
     }
 
-    this.physics.world.setBounds(0, -500, width, H + 900);
+    this.physics.world.setBounds(0, -500, this.worldW, H + 900);
     setupCamera(this);
     this.camX = 0;
 
@@ -123,12 +120,6 @@ export default class PlayScene extends Phaser.Scene {
 
     const heroMeta = this.cache.json.get(`meta-${this.heroId}`).anims;
     this.hero = new Hero(this, 180, GROUND_Y, this.char, heroMeta);
-
-    this.pet = this.add.sprite(60, GROUND_Y, `${this.petId}-pet_follow`).setDepth(4);
-    const pm = this.cache.json.get(`meta-${this.petId}`).anims.pet_follow;
-    this.pet.setOrigin(pm.origin.x, pm.origin.y).setScale(0.58);
-    this.pet.play(`${this.petId}-pet_follow`);
-    this.petTimer = 0;
 
     this.shadow = this.add.image(0, 0, 'fx_shadow').setDepth(5).setAlpha(0.5);
     this.combo = 0;
@@ -282,10 +273,10 @@ export default class PlayScene extends Phaser.Scene {
     const x = this.goalX;
     if (this.stage.rescue) {
       this.cage = this.add.image(x, GROUND_Y - 150, 'i_cage').setDepth(3);
-      const pm = this.cache.json.get('meta-zzulien').anims.pet_follow;
-      this.zz = this.add.sprite(x, GROUND_Y - 108, 'zzulien-pet_follow')
-        .setOrigin(pm.origin.x, pm.origin.y).setScale(0.4).setDepth(4);
-      this.zz.play('zzulien-pet_follow');
+      const pm = this.cache.json.get('meta-zzulien').anims.idle;
+      this.zz = this.add.sprite(x, GROUND_Y - 104, 'zzulien-idle')
+        .setOrigin(pm.origin.x, pm.origin.y).setScale(0.5).setDepth(4);
+      this.zz.play('zzulien-idle');
       this.tweens.add({
         targets: [this.cage, this.zz], y: '-=12', duration: 1100,
         yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
@@ -829,7 +820,6 @@ export default class PlayScene extends Phaser.Scene {
     this.countSlidePass();
     this.updateEnemies(time);
     this.updateTokens(time);
-    this.updatePet(time, delta);
     if (this.char.stats.sonic) this.updateSonic(time);
 
     // 추락 — 지면 바로 아래에서 바로 잡는다.
@@ -882,7 +872,6 @@ export default class PlayScene extends Phaser.Scene {
     hero.victory();
     stopMusic();
     sfx.goal();
-    this.pet.play(`${this.petId}-pet_cheer`);
     if (this.stage.rescue && this.zz) {
       this.toast('쭈일리언 구출!');
       this.tweens.killTweensOf([this.cage, this.zz]);
@@ -974,20 +963,6 @@ export default class PlayScene extends Phaser.Scene {
     });
   }
 
-  updatePet(time, delta) {
-    const hero = this.hero;
-    this.pet.x = Phaser.Math.Linear(this.pet.x, hero.box.x - 150, 0.07);
-    this.pet.y = Phaser.Math.Linear(this.pet.y, hero.box.y, 0.12);
-    if (this.won) return;
-    this.petTimer += delta;
-    if (this.petTimer > 6500) {
-      this.petTimer = 0;
-      this.pet.play(`${this.petId}-pet_activate`);
-      this.pet.once('animationcomplete', () => this.pet.play(`${this.petId}-pet_follow`));
-      this.popToken(hero.box.x + 240, hero.box.y - 160);
-    }
-  }
-
   updateSonic(time) {
     if (time - this.lastSonic < 3200) return;
     this.lastSonic = time;
@@ -1008,7 +983,7 @@ export default class PlayScene extends Phaser.Scene {
     this.time.delayedCall(460, () => {
       this.scene.start('Result', {
         cleared, score: this.score, tokens: this.tokenCount,
-        heroId: this.heroId, petId: this.petId,
+        heroId: this.heroId,
         stageId: this.endless ? 'endless' : this.stage.id,
         missions: this.missions.map((m) => ({ ...m })),
         dist: Math.max(this.stat.dist, Math.floor(this.hero.box.x / 10)),

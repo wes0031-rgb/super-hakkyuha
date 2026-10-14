@@ -29,7 +29,7 @@ export default class StageScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '46px', fontStyle: '900', color: '#ffffff',
       stroke: '#7b5a48', strokeThickness: 9,
     }).setOrigin(0.5);
-    this.add.text(W / 2, 100, '스테이지를 깰 때마다 그 캐릭터가 펫으로 따라와요', {
+    this.add.text(W / 2, 100, '먹구름성까지 가면 쭈일리언을 구해 낼 수 있어요', {
       fontFamily: FONT, fontSize: '18px', color: '#8a6a56',
     }).setOrigin(0.5);
 
@@ -118,53 +118,38 @@ export default class StageScene extends Phaser.Scene {
       }
     }
 
-    // 지금 데리고 갈 하뀨하 — 여기서 바로 바꿀 수 있다
+    // 지금 데리고 갈 하뀨하
     const hero = byId(data.lastHero) || byId('jjujebi');
-    const pet = byId(data.lastPet) || byId('palabella');
 
-    // 그림은 왼쪽, 이름은 그 옆에 세로로 — 글자가 박스를 넘지 않게
     const BX = W / 2 - 316, BY = 440, BW = 632, BH = 130;
     this.shadowG.fillStyle(0x7b5a48, 0.2);
     this.shadowG.fillRoundedRect(BX + 4, BY + 7, BW, BH, 20);
     this.add.rectangle(W / 2, BY + BH / 2, BW, BH, 0xfffaf4).setStrokeStyle(5, 0x7b5a48);
 
-    this.add.text(BX + 24, BY + 14, '지금 함께 가는 하뀨하', {
+    this.add.text(BX + 24, BY + 14, '지금 달리는 하뀨하', {
       fontFamily: FONT, fontSize: '14px', fontStyle: '900', color: '#9a7b68',
     });
 
-    const base = BY + BH - 16;
-    this.add.image(BX + 72, base, `base-${hero.id}`).setOrigin(0.5, 1).setScale(0.135);
-    this.add.text(BX + 116, BY + 56, hero.name, {
-      fontFamily: FONT, fontSize: '20px', fontStyle: '900', color: '#6b4a3a',
+    this.add.image(BX + 76, BY + BH - 14, `base-${hero.id}`).setOrigin(0.5, 1).setScale(0.14);
+    this.add.text(BX + 124, BY + 52, hero.name, {
+      fontFamily: FONT, fontSize: '22px', fontStyle: '900', color: '#6b4a3a',
     });
-    this.add.image(BX + 126, BY + 96, `tok-${hero.token}`).setScale(0.1);
-    this.add.text(BX + 146, BY + 86, '모으는 것', {
-      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
-    });
-
-    this.add.text(BX + 244, BY + 68, '＋', {
-      fontFamily: FONT, fontSize: '26px', fontStyle: '900', color: '#c8b6a4',
-    }).setOrigin(0.5);
-
-    this.add.image(BX + 300, base, `base-${pet.id}`).setOrigin(0.5, 1).setScale(0.105);
-    this.add.text(BX + 336, BY + 60, pet.name, {
-      fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#6b4a3a',
-    });
-    this.add.text(BX + 336, BY + 84, `펫 · 모은 펫 ${data.pets.length}`, {
-      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+    this.add.image(BX + 134, BY + 94, `tok-${hero.token}`).setScale(0.1);
+    this.add.text(BX + 154, BY + 84, hero.skill, {
+      fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#9a7b68',
     });
 
     button(this, BX + BW - 118, BY + BH / 2, 196, 62, '바꾸기', () => {
       this.scene.start('Select', { stageId: Math.min(open, 5) });
     }, { size: '21px', fill: 0xffffff, hover: 0xfff2d0 });
 
-    this.add.text(BX + 24, BY + BH + 22, `★ ${data.stars}   ·   모은 것 ${data.bank.toLocaleString()}개`, {
+    this.add.text(BX + 24, BY + BH + 32, `★ ${data.stars}   ·   모은 것 ${data.bank.toLocaleString()}개`, {
       fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#7b5a48',
     });
 
-    button(this, W / 2 + 86, BY + BH + 34, 230, 54, '올리러 가기',
+    button(this, W / 2 + 86, BY + BH + 44, 230, 54, '올리러 가기',
       () => this.scene.start('Shop'), { size: '19px' });
-    button(this, W / 2 + 330, BY + BH + 34, 200, 54, '타이틀로',
+    button(this, W / 2 + 330, BY + BH + 44, 200, 54, '타이틀로',
       () => this.scene.start('Title'), { size: '19px', fill: 0xffffff, hover: 0xfff2d0 });
   }
 }

@@ -3,7 +3,7 @@ const KEY = 'super-hakkyuha';
 
 const EMPTY = {
   cleared: [],
-  pets: ['palabella'],
+  unlocked: [],      // 구해 내서 열린 캐릭터
   best: {},          // 스테이지별 최고 점수
   bestDist: 0,       // 끝없이 달리기 최고 거리
   stars: 0,
@@ -11,7 +11,6 @@ const EMPTY = {
   bank: 0,           // 모은 것 — 업그레이드에 쓴다
   upgrades: {},      // id → 단계
   lastHero: 'jjujebi',
-  lastPet: 'palabella',
 };
 
 export function load() {
@@ -60,8 +59,10 @@ export function finishRun({ stageId, heroId, score, tokens, missions, cleared, d
     if (dist > d.bestDist) d.bestDist = dist;
   } else if (cleared) {
     if (!d.cleared.includes(stageId)) d.cleared.push(stageId);
-    if (!d.pets.includes(heroId)) { d.pets.push(heroId); news.push(heroId); }
-    if (stageId === 5 && !d.pets.includes('zzulien')) { d.pets.push('zzulien'); news.push('zzulien'); }
+    if (stageId === 5 && !d.unlocked.includes('zzulien')) {
+      d.unlocked.push('zzulien');
+      news.push('zzulien');
+    }
     if (!d.best[stageId] || score > d.best[stageId]) d.best[stageId] = score;
   }
 
@@ -79,11 +80,14 @@ export function buy(id, cost) {
   return true;
 }
 
-export function setLast(heroId, petId) {
+export function setLast(heroId) {
   const d = load();
   d.lastHero = heroId;
-  d.lastPet = petId;
   save(d);
+}
+
+export function isUnlocked(id) {
+  return load().unlocked.includes(id);
 }
 
 export function reset() {

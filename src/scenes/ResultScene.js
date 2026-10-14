@@ -16,7 +16,7 @@ export default class ResultScene extends Phaser.Scene {
   init(d) {
     this.d = d && d.heroId ? d : {
       cleared: true, score: 12340, tokens: 42, dist: 980,
-      heroId: 'jjujebi', petId: 'palabella', stageId: 1,
+      heroId: 'jjujebi', stageId: 1,
       missions: [
         { id: 'a', text: '모으는 것 20개 줍기', star: 1, done: true, got: 42, need: 20 },
         { id: 'b', text: '적 12마리 밟기', star: 2, done: false, got: 7, need: 12 },
@@ -118,34 +118,29 @@ export default class ResultScene extends Phaser.Scene {
       y += h + 12;
     }
 
-    // 새로 들어온 펫
+    // 구해 내서 열린 캐릭터
     if (news.length) {
-      const h = 76;
+      const h = 80;
       panel(this, W / 2 - 300, y, 600, h,
-        { fill: 0xfff3d4, line: 0xffb340, fixed: false, depth: -2 });
-      this.add.text(W / 2 - 278, y + 9, '펫이 늘었어요', {
-        fontFamily: FONT, fontSize: '13px', fontStyle: '900', color: '#b07a20',
+        { fill: 0xf0e4ff, line: 0x8f6bbf, fixed: false, depth: -2 });
+      this.add.text(W / 2 - 278, y + 10, '구해 냈어요', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: '900', color: '#8f6bbf',
       });
       news.forEach((id, i) => {
-        const x = W / 2 - 272 + i * 230;
-        const s2 = this.add.image(x + 22, y + h - 8, `base-${id}`)
-          .setOrigin(0.5, 1).setScale(0.085);
-        this.add.text(x + 58, y + 28, byId(id).name, {
-          fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#7b5a48',
+        const x = W / 2 - 272 + i * 240;
+        const s2 = this.add.image(x + 26, y + h - 8, `base-${id}`)
+          .setOrigin(0.5, 1).setScale(0.095);
+        this.add.text(x + 66, y + 30, byId(id).name, {
+          fontFamily: FONT, fontSize: '18px', fontStyle: '900', color: '#6b4a3a',
         });
-        this.add.text(x + 58, y + 50, '펫으로 데려갈 수 있어요', {
-          fontFamily: FONT, fontSize: '11px', fontStyle: '700', color: '#b08a4a',
+        this.add.text(x + 66, y + 54, '이제 같이 달릴 수 있어요', {
+          fontFamily: FONT, fontSize: '12px', fontStyle: '700', color: '#8f6bbf',
         });
         this.tweens.add({
-          targets: s2, y: y + h - 14, duration: 540, yoyo: true,
+          targets: s2, y: y + h - 16, duration: 540, yoyo: true,
           repeat: -1, ease: 'Sine.easeInOut',
         });
       });
-      if (news.includes('zzulien')) {
-        this.add.text(W / 2 + 278, y + h / 2, '쭈일리언을 구해 냈어요!', {
-          fontFamily: FONT, fontSize: '15px', fontStyle: '900', color: '#8f6bbf',
-        }).setOrigin(1, 0.5);
-      }
       y += h + 12;
     }
 

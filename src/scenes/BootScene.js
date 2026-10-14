@@ -59,12 +59,11 @@ export default class BootScene extends Phaser.Scene {
 
     const q = new URLSearchParams(location.search);
     const hero = q.get('hero');
-    if (hero && CHARACTERS.some((c) => c.id === hero && !c.rescueOnly)) {
-      const others = CHARACTERS.filter((c) => c.id !== hero && !c.rescueOnly);
+    if (hero && CHARACTERS.some((c) => c.id === hero)) {
+      const st = q.get('stage');
       this.scene.start('Play', {
         heroId: hero,
-        petId: q.get('pet') || others[0].id,
-        stageId: Number(q.get('stage') || 1),
+        stageId: st === 'endless' ? 'endless' : Number(st || 1),
       });
       return;
     }

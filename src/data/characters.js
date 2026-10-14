@@ -44,14 +44,14 @@ export const CHARACTERS = [
   },
   {
     id: 'zzulien', name: '쭈일리언', member: '주은', token: 'paw', tint: 0xb58fd8,
-    skill: '별의 기운', desc: '먹구름성에서 구해내면 펫으로 함께 가요',
+    skill: '별의 기운', desc: '공중에서 한 번 더 디딜 수 있어요',
     stats: { air: 1, token: 1, boost: 1, extraAir: 1 },
-    rescueOnly: true,       // 플레이어블이 아니라 구출 대상
+    needRescue: true,       // 먹구름성을 깨야 열린다
   },
 ];
 
 export const byId = (id) => CHARACTERS.find((c) => c.id === id);
-export const PLAYABLE = CHARACTERS.filter((c) => !c.rescueOnly);
+export const PLAYABLE = CHARACTERS.filter((c) => !c.needRescue);
 
 // 플레이에 실제로 쓰는 것만 싣는다. hello · sleepy 는 아직 안 쓴다.
 export const MOTIONS = [
@@ -61,4 +61,3 @@ export const MOTIONS = [
   'power_up', 'game_over',
 ];
 
-export const PET_MOTIONS = ['pet_follow', 'pet_activate', 'pet_cheer'];
