@@ -1,10 +1,10 @@
-import { W, H } from '../config.js?v=1792018473';
-import { setupCamera } from '../hidpi.js?v=1792018473';
-import { unlock, sfx } from '../audio.js?v=1792018473';
-import { makeGradient } from '../level/textures.js?v=1792018473';
-import { panel, button } from '../ui.js?v=1792018473';
-import { UPGRADES, costOf } from '../data/upgrades.js?v=1792018473';
-import { load, buy } from '../save.js?v=1792018473';
+import { W, H } from '../config.js?v=1792026900';
+import { setupCamera } from '../hidpi.js?v=1792026900';
+import { unlock, sfx } from '../audio.js?v=1792026900';
+import { makeGradient } from '../level/textures.js?v=1792026900';
+import { panel, button } from '../ui.js?v=1792026900';
+import { UPGRADES, costOf } from '../data/upgrades.js?v=1792026900';
+import { load, buy } from '../save.js?v=1792026900';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 

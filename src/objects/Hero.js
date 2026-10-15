@@ -1,9 +1,9 @@
-import { sfx } from '../audio.js?v=1792018473';
+import { sfx } from '../audio.js?v=1792026900';
 import {
   HERO_W, HERO_H, HERO_SLIDE_H, JUMP_V, JUMP2_V, JUMP_CUT, SPRING_V,
   COYOTE_MS, BUFFER_MS, SPEED_MIN, SPEED_MAX, SPEED_RAMP,
   BOOST_MS, GIANT_MS, INVULN_MS, MAGNET_MS, SLIP_MS, STUN_MS,
-} from '../config.js?v=1792018473';
+} from '../config.js?v=1792026900';
 
 // 물리 바디는 보이지 않는 사각형이고, 그림은 매 프레임 그 바닥에 발을 맞춘다.
 // 모션마다 칸 크기가 달라도 발 위치가 흔들리지 않는다.
@@ -36,6 +36,10 @@ export default class Hero {
     this.stompChain = 0;
     this.lastSafeX = x;
     this.lastSafeY = y;
+
+    // 눌리고 늘어나는 양. 스프링으로 1 로 돌아간다
+    this.sqx = 1; this.sqy = 1;
+    this.svx = 0; this.svy = 0;
 
     this.play('run');
   }
@@ -91,6 +95,14 @@ export default class Hero {
     }
   }
 
+  // 목표 비율로 튕긴다. 되돌아오면서 반대로 한 번 넘어가는 게 맛이다
+  squash(sx, sy) {
+    this.sqx = sx;
+    this.sqy = sy;
+    this.svx = 0;
+    this.svy = 0;
+  }
+
   jumpPressed(now) { this.lastJumpPress = now; }
 
   jumpReleased() {
@@ -108,6 +120,7 @@ export default class Hero {
       this.lastJumpPress = -9999;
       this.setSlide(false);
       this.play('jump', true);
+      this.squash(0.80, 1.24);
       sfx.jump();
       this.scene.puff(this.x, this.y);
       return true;
@@ -117,6 +130,7 @@ export default class Hero {
       this.body.setVelocityY(-JUMP2_V * (this.stats.air || 1));
       this.lastJumpPress = -9999;
       this.play('double_jump', true);
+      this.squash(0.86, 1.18);
       sfx.double();
       this.scene.sparkle(this.x, this.y - 60);
       return true;
@@ -125,6 +139,7 @@ export default class Hero {
   }
 
   spring() {
+    this.squash(0.72, 1.34);
     this.body.setVelocityY(-SPRING_V);
     this.jumpsLeft = this.maxJumps;
     this.setSlide(false);
@@ -132,6 +147,7 @@ export default class Hero {
   }
 
   stomp(power = 1) {
+    this.squash(1.24, 0.80);
     this.body.setVelocityY(-JUMP_V * 0.72 * power);
     this.jumpsLeft = Math.max(this.jumpsLeft, 1);
     this.play('stomp', true);
@@ -151,6 +167,7 @@ export default class Hero {
   }
 
   hurt(now) {
+    this.squash(1.3, 0.76);
     this.invulnUntil = now + INVULN_MS;
     this.play('hit', true);
     this.box.setVelocityY(-300);
@@ -237,9 +254,23 @@ export default class Hero {
       }
     }
 
+    // 스프링으로 1 에 수렴시킨다
+    const K = 0.26, D = 0.70;
+    this.svx += (1 - this.sqx) * K; this.svx *= D; this.sqx += this.svx;
+    this.svy += (1 - this.sqy) * K; this.svy *= D; this.sqy += this.svy;
+
+    // 떠 있는 동안에도 속도에 따라 살짝 늘어난다
+    let ax = 1, ay = 1;
+    if (!grounded && !this.locked) {
+      const v = Phaser.Math.Clamp(this.body.velocity.y / 900, -1, 1);
+      ay = 1 + Math.abs(v) * 0.10 * (v < 0 ? 1 : 0.7);
+      ax = 1 - Math.abs(v) * 0.07;
+    }
+
     this.art.x = this.box.x;
     this.art.y = this.box.y;
-    this.art.setScale(this.giant ? 1.35 : 1);
+    const base = this.giant ? 1.35 : 1;
+    this.art.setScale(base * this.sqx * ax, base * this.sqy * ay);
 
     const flashing = now < this.invulnUntil && !this.boosting && !this.giant;
     this.art.setAlpha(flashing && Math.floor(now / 70) % 2 ? 0.35 : 1);

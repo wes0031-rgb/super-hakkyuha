@@ -1,19 +1,20 @@
 import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
-  HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE,
-} from '../config.js?v=1792018473';
-import { byId, MOTIONS } from '../data/characters.js?v=1792018473';
-import { byStage, STAGES } from '../data/stages.js?v=1792018473';
-import { rollMissions } from '../data/missions.js?v=1792018473';
-import { load, lv } from '../save.js?v=1792018473';
-import { byUp, valueOf } from '../data/upgrades.js?v=1792018473';
-import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792018473';
-import { makeGradient } from '../level/textures.js?v=1792018473';
-import Hero from '../objects/Hero.js?v=1792018473';
-import { setupCamera, scrollTo } from '../hidpi.js?v=1792018473';
-import { panel, bar } from '../ui.js?v=1792018473';
-import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js?v=1792018473';
-import { rowY } from '../config.js?v=1792018473';
+  HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE, HERO_H, HERO_SLIDE_H,
+  MULT_MAX, MULT_HOLD, MULT_DECAY, MULT_GAIN,
+} from '../config.js?v=1792026900';
+import { byId, MOTIONS } from '../data/characters.js?v=1792026900';
+import { byStage, STAGES } from '../data/stages.js?v=1792026900';
+import { rollMissions } from '../data/missions.js?v=1792026900';
+import { load, lv } from '../save.js?v=1792026900';
+import { byUp, valueOf } from '../data/upgrades.js?v=1792026900';
+import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792026900';
+import { makeGradient } from '../level/textures.js?v=1792026900';
+import Hero from '../objects/Hero.js?v=1792026900';
+import { setupCamera, scrollTo } from '../hidpi.js?v=1792026900';
+import { panel, bar } from '../ui.js?v=1792026900';
+import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js?v=1792026900';
+import { rowY } from '../config.js?v=1792026900';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -55,6 +56,10 @@ export default class PlayScene extends Phaser.Scene {
       bricks: 0, powers: 0, bestCombo: 0, dist: 0, noHit: 1, noPower: 1,
     };
     this.milestone = 0;
+    this.mult = 1;
+    this.multUntil = 0;
+    this.baseScore = 0;    // 배율 없이 번 점수
+    this.bonusScore = 0;   // 배율로 더 번 점수
   }
 
   preload() {
@@ -304,6 +309,7 @@ export default class PlayScene extends Phaser.Scene {
         blk.setData('full', false);
         blk.setTexture('blk-empty');
         hero.bump();
+        this.hitStop(45);
         sfx.bump();
         this.tweens.add({ targets: blk, y: blk.y - 10, duration: 90, yoyo: true });
         this.popToken(blk.x, blk.y - 60);
@@ -319,6 +325,7 @@ export default class PlayScene extends Phaser.Scene {
       if (hero.body.velocity.y <= 0) return;
       hero.spring();
       this.tally('springs');
+      this.bumpMult('spring');
       sfx.spring();
       this.tweens.add({ targets: sp, scaleY: 0.28, duration: 90, yoyo: true });
       this.sparkle(sp.x, sp.y - 40);
@@ -336,6 +343,9 @@ export default class PlayScene extends Phaser.Scene {
 
   breakBrick(b) {
     this.tally('bricks');
+    this.bumpMult('brick');
+    this.hitStop(40);
+    this.cameras.main.shake(70, 0.003);
     sfx.break_();
     this.puff(b.x, b.y);
     this.hitMark(b.x, b.y);
@@ -364,6 +374,7 @@ export default class PlayScene extends Phaser.Scene {
     });
     this.tokenCount++;
     this.tally('tokens');
+    this.bumpMult('token');
     sfx.token(this.combo);
     const mul = this.bumpCombo(this.time.now);
     this.addScore(Math.round(TOKEN_SCORE * (this.char.stats.token || 1) * mul * this.scoreMul));
@@ -377,6 +388,7 @@ export default class PlayScene extends Phaser.Scene {
     const now = this.time.now;
     const hero = this.hero;
     hero.powerUp();
+    this.bumpMult('power');
     this.stat.noPower = 0;
     this.tally('powers');
     if (kind === 'heal') sfx.heal(); else sfx.power();
@@ -409,6 +421,9 @@ export default class PlayScene extends Phaser.Scene {
       // 벌은 더 높이 튕긴다. 구멍을 건너는 발판으로 쓰라고 둔 것이다
       this.killEnemy(e, kind === 'slime', kind === 'bee' ? 2 : 1);
       hero.stomp(kind === 'bee' ? 1.25 : 1);
+      this.bumpMult('stomp');
+      this.hitStop(55 + Math.min(hero.stompChain, 4) * 10);
+      this.cameras.main.shake(90, 0.004);
       sfx.stomp();
       this.hitMark(e.x, top + 10);
       const i = Math.min(hero.stompChain, STOMP_SCORE.length - 1);
@@ -462,11 +477,16 @@ export default class PlayScene extends Phaser.Scene {
       return;
     }
 
+    const lost = this.mult;
     this.hp -= amount;
     this.stat.noHit = 0;
     sfx.hurt();
     this.combo = 0;
-    this.cameras.main.shake(150, 0.007);
+    this.mult = 1;
+    this.multUntil = 0;
+    if (lost >= 1.8) this.floatText(hero.x, hero.y - 150, `×${lost.toFixed(1)} 날아감`);
+    this.hitStop(90);
+    this.cameras.main.shake(190, 0.009);
     this.sparkle(hero.x, hero.y - 90, 5, 'fx_star');
     if (this.hp > 0) {
       if (stun) hero.stun(this.time.now); else hero.hurt(this.time.now);
@@ -526,8 +546,15 @@ export default class PlayScene extends Phaser.Scene {
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(53);
     this.add.image(1240, 59, 'i_flag').setScale(0.1).setScrollFactor(0).setDepth(52);
 
+    // 점수 배율 — 가운데 위에 크게. 유지 시간이 줄어드는 게 보여야 한다
+    this.multTxt = this.add.text(W / 2, 104, '', {
+      fontFamily: FONT, fontSize: '46px', fontStyle: '900', color: '#ffd977',
+      stroke: '#7b5a48', strokeThickness: 9,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(58).setAlpha(0);
+    this.multBarG = this.add.graphics().setScrollFactor(0).setDepth(58);
+
     // 콤보
-    this.comboTxt = this.add.text(W / 2, 112, '', {
+    this.comboTxt = this.add.text(W / 2, 150, '', {
       fontFamily: FONT, fontSize: '36px', fontStyle: '900', color: '#ffd977',
       stroke: '#7b5a48', strokeThickness: 8,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(60).setAlpha(0);
@@ -573,6 +600,23 @@ export default class PlayScene extends Phaser.Scene {
         backgroundColor: '#ffffffcc', padding: { x: 14, y: 6 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(55);
     this.tweens.add({ targets: this.hint, alpha: 0, delay: 5000, duration: 700 });
+  }
+
+  // 빠를 때 화면 가장자리로 선이 지나간다
+  updateSpeedLines(time) {
+    const hero = this.hero;
+    const fast = hero.boosting || hero.speed > 640;
+    if (!fast) return;
+    if (time - (this.lastLine || 0) < (hero.boosting ? 45 : 110)) return;
+    this.lastLine = time;
+    const y = 120 + Math.random() * (H - 260);
+    const len = 90 + Math.random() * 140;
+    const g = this.add.rectangle(W + 40, y, len, 3 + Math.random() * 3, 0xffffff,
+      hero.boosting ? 0.55 : 0.3).setOrigin(0, 0.5).setScrollFactor(0).setDepth(45);
+    this.tweens.add({
+      targets: g, x: -len - 40, duration: hero.boosting ? 300 : 460,
+      onComplete: () => g.destroy(),
+    });
   }
 
   // 지금 걸린 파워업을 아이콘과 남은 시간으로 보여 준다
@@ -678,23 +722,42 @@ export default class PlayScene extends Phaser.Scene {
     this.cameras.main.flash(260, 255, 240, 190);
   }
 
+  // 적극적인 행동마다 배율이 오른다
+  bumpMult(kind) {
+    const g = MULT_GAIN[kind] || 0.1;
+    this.mult = Math.min(MULT_MAX, this.mult + g);
+    this.multUntil = this.time.now + MULT_HOLD;
+    if (this.mult > (this.peakMult || 1)) this.peakMult = this.mult;
+  }
+
+  updateMult(time, delta) {
+    if (this.mult <= 1) return;
+    if (time < this.multUntil) return;
+    this.mult = Math.max(1, this.mult - delta * MULT_DECAY);
+  }
+
   bumpCombo(now) {
     this.combo = now < this.comboUntil ? this.combo + 1 : 1;
     this.comboUntil = now + 1500;
     this.tally('bestCombo', this.combo);
     if (this.combo < 3) return 1;
     const mul = 1 + Math.min(this.combo, 20) * 0.1;
-    this.comboTxt.setText(`${this.combo} 연속  ×${mul.toFixed(1)}`)
-      .setAlpha(1).setScale(0.8);
+    this.comboTxt.setText(`${this.combo} 연속`).setAlpha(1).setScale(0.8);
     this.tweens.killTweensOf(this.comboTxt);
     this.tweens.add({ targets: this.comboTxt, scale: 1, duration: 160, ease: 'Back.easeOut' });
     this.tweens.add({ targets: this.comboTxt, alpha: 0, delay: 1100, duration: 400 });
     return mul;
   }
 
-  addScore(n) {
-    this.score += n;
+  // 번 점수는 기본과 배율분으로 나눠 센다. 결과 화면에서 어디서 났는지 보여 준다.
+  addScore(n, useMult = true) {
+    const m = useMult ? this.mult : 1;
+    const got = Math.round(n * m);
+    this.baseScore += n;
+    this.bonusScore += got - n;
+    this.score += got;
     this.scoreTxt.setText(String(this.score).padStart(6, '0'));
+    return got;
   }
 
   toast(msg) {
@@ -751,6 +814,20 @@ export default class PlayScene extends Phaser.Scene {
     });
     this.sparkle(x, y, 4, 'fx_star');
     if (n >= 5) this.cameras.main.flash(140, 255, 236, 180);
+  }
+
+  // 아주 짧게 멈춘다. 눈에는 안 보이고 손에만 걸리는 게 맞는 길이다.
+  hitStop(ms) {
+    if (this.stopping || this.over) return;
+    this.stopping = true;
+    this.physics.world.pause();
+    this.anims.pauseAll();
+    window.setTimeout(() => {
+      if (!this.scene || !this.scene.isActive()) return;
+      this.physics.world.resume();
+      this.anims.resumeAll();
+      this.stopping = false;
+    }, ms);
   }
 
   // 밟거나 부술 때 터지는 표시
@@ -832,20 +909,30 @@ export default class PlayScene extends Phaser.Scene {
     hero.update(time, delta, input);
 
     const grounded = hero.body.blocked.down || hero.body.touching.down;
+    if (!grounded) this.lastFallV = hero.body.velocity.y;
     if (grounded && !this.wasGround && !hero.locked) {
       hero.playOnce('land');
+      // 빠르게 떨어졌을수록 크게 눌린다
+      const vy = Math.abs(this.lastFallV || 0);
+      const k = Phaser.Math.Clamp(vy / 1400, 0.25, 1);
+      hero.squash(1 + 0.34 * k, 1 - 0.3 * k);
+      if (k > 0.65) this.cameras.main.shake(70, 0.0025);
       sfx.land();
       this.puff(hero.x, hero.y);
       hero.stompChain = 0;
     }
     this.wasGround = grounded;
 
-    const want = Phaser.Math.Clamp(hero.box.x - 380, 0, this.worldW - W);
+    // 속도가 붙을수록 캐릭터를 왼쪽으로 밀어 앞을 더 보여 준다
+    const t = Phaser.Math.Clamp((hero.speed - 470) / 400, 0, 1);
+    const lead = 360 - t * 110;
+    const want = Phaser.Math.Clamp(hero.box.x - lead, 0, this.worldW - W);
     this.camX = Phaser.Math.Linear(this.camX, want, 0.2);
     scrollTo(this, this.camX);
 
     if (this.endless) this.ensureAhead(hero.box.x);
     this.countSlidePass();
+    this.checkNearMiss();
     this.updateEnemies(time);
     this.updateTokens(time);
     if (this.char.stats.sonic) this.updateSonic(time);
@@ -856,8 +943,30 @@ export default class PlayScene extends Phaser.Scene {
 
     if (!this.endless && !this.won && hero.box.x >= this.goalX) this.reachGoal();
 
+    this.updateMult(time, delta);
     this.updateShadow();
+    this.updateSpeedLines(time);
     this.updatePowerSlots(time);
+    // 배율 표시
+    this.multBarG.clear();
+    if (this.mult > 1.05) {
+      const grow = Phaser.Math.Clamp((this.mult - 1) / (MULT_MAX - 1), 0, 1);
+      this.multTxt.setText(`×${this.mult.toFixed(1)}`)
+        .setAlpha(1)
+        .setScale(0.9 + grow * 0.45)
+        .setColor(this.mult >= 4 ? '#ff9f1c' : (this.mult >= 2.5 ? '#ffd977' : '#ffeaa8'));
+      const left = Phaser.Math.Clamp((this.multUntil - time) / MULT_HOLD, 0, 1);
+      const w = 190;
+      this.multBarG.fillStyle(0x7b5a48, 0.3);
+      this.multBarG.fillRoundedRect(W / 2 - w / 2, 136, w, 9, 4);
+      if (left > 0) {
+        this.multBarG.fillStyle(this.mult >= 4 ? 0xff9f1c : 0xffd977, 1);
+        this.multBarG.fillRoundedRect(W / 2 - w / 2, 136, w * left, 9, 4);
+      }
+    } else {
+      this.multTxt.setAlpha(0);
+    }
+
     this.missionUI.forEach((u) => {
       if (u.m.done) {
         u.n.setText('★'.repeat(u.m.star)).setColor('#ff9f1c');
@@ -945,6 +1054,48 @@ export default class PlayScene extends Phaser.Scene {
       hero.jumpPressed(time);
       this.time.delayedCall(160, () => hero.jumpReleased());
     }
+  }
+
+  // 장애물과 적을 얼마나 아슬아슬하게 지나쳤는지 본다
+  checkNearMiss() {
+    const hero = this.hero;
+    if (hero.locked || hero.invuln) return;
+    const hx = hero.box.x;
+    const hTop = hero.box.y - (hero.sliding ? HERO_SLIDE_H : HERO_H);
+    const scan = (grp, key) => {
+      grp.children.iterate((o) => {
+        if (!o || !o.active || o.getData(key)) return;
+        if (hx < o.x + 26) return;
+        o.setData(key, true);
+        const oTop = o.y - o.displayHeight * (o.originY === 1 ? 1 : 0.5);
+        const oBot = oTop + o.displayHeight;
+        // 위로 넘었으면 발과 머리 사이, 아래로 지났으면 머리와 바닥 사이
+        const gap = hero.box.y <= oTop + 8
+          ? oTop - hero.box.y
+          : (hTop >= oBot - 8 ? hTop - oBot : -1);
+        if (gap < 0 || gap > 78) return;
+        this.nearMiss(o.x, oTop);
+      });
+    };
+    scan(this.G.hazards, 'nm');
+    scan(this.G.enemies, 'nm');
+  }
+
+  nearMiss(x, y) {
+    this.nearCount = (this.nearCount || 0) + 1;
+    this.bumpMult('near');
+    this.addScore(250);
+    sfx.token(6);
+    const t = this.add.text(x, y - 20, '아슬아슬!', {
+      fontFamily: FONT, fontSize: '22px', fontStyle: '900', color: '#ffffff',
+      stroke: '#5aa9e6', strokeThickness: 6,
+    }).setOrigin(0.5).setDepth(42).setScale(0.6);
+    this.tweens.add({ targets: t, scale: 1, duration: 150, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: t, y: y - 80, alpha: 0, delay: 300, duration: 420,
+      onComplete: () => t.destroy(),
+    });
+    this.sparkle(x, y, 3);
   }
 
   // 매달린 것을 슬라이드로 지나쳤는지 센다
@@ -1041,6 +1192,10 @@ export default class PlayScene extends Phaser.Scene {
         heroId: this.heroId,
         stageId: this.endless ? 'endless' : this.stage.id,
         missions: this.missions.map((m) => ({ ...m })),
+        near: this.nearCount || 0,
+        baseScore: Math.round(this.baseScore),
+        bonusScore: Math.round(this.bonusScore),
+        bestMult: Math.round((this.peakMult || 1) * 10) / 10,
         dist: Math.max(this.stat.dist, Math.floor(this.hero.box.x / 10)),
       });
     });

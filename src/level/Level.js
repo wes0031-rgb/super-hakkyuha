@@ -1,6 +1,6 @@
-import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792018473';
-import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792018473';
-import { THEME_TILE } from '../data/stages.js?v=1792018473';
+import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792026900';
+import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792026900';
+import { THEME_TILE } from '../data/stages.js?v=1792026900';
 
 // 작가 에셋은 2배 해상도라 절반으로 줄여 쓴다. 타일 128 → 64.
 const S = 0.5;
@@ -11,6 +11,7 @@ export function pickOrder(stage) {
   const [lo0, hi0] = stage.diff;
   const order = [byTag('start')[0]];
   const recent = [];
+  let hard = 0;
   const pool = normal();
   const bonus = byTag('bonus');
   const power = byTag('power');
@@ -27,12 +28,23 @@ export function pickOrder(stage) {
     else if (i % 16 === 9) pick = heal[0];
     else {
       const t = i / stage.chunks;
-      const hi = Math.min(hi0, lo0 + Math.floor(t * (hi0 - lo0 + 1)));
-      const lo = Math.max(lo0, hi - 1);
+      // 첫머리는 가르치는 구간 — 쉬운 것만 깔아 손에 익히게 한다
+      const teach = stage.id === 1 && i <= 3;
+      // 꾸준히 오르되 세 번 굽이친다. 정점 뒤에는 반드시 숨 돌릴 자리가 온다
+      const wave = (Math.sin(t * Math.PI * 3 - Math.PI / 2) + 1) / 2;
+      const shape = t * 0.62 + wave * 0.38;
+      let want = lo0 + (hi0 - lo0) * shape;
+      if (teach) want = lo0;
+      // 어려운 게 둘 이어졌으면 내려 준다
+      if (hard >= 2) want = Math.max(lo0, want - 2);
+      const target = Math.round(want);
+      const lo = Math.max(1, target - 1);
+      const hi = Math.min(5, target + (teach ? 0 : 1));
       const band = pool.filter((c) => c.diff >= lo && c.diff <= hi && !recent.includes(c.id));
       const use = band.length ? band : pool.filter((c) => c.diff <= hi0 && !recent.includes(c.id));
       pick = use[Math.floor(Math.random() * use.length)] || pool[0];
     }
+    hard = pick.diff >= 4 ? hard + 1 : 0;
     recent.push(pick.id);
     if (recent.length > 3) recent.shift();
     order.push(pick);
@@ -253,8 +265,11 @@ export function endlessPick(i, recent) {
   if (i % 14 === 6) return byTag('power')[Math.floor(Math.random() * byTag('power').length)];
   if (i % 22 === 12) return byTag('heal')[0];
   if (i % 23 === 14) return byTag('bonus')[0];
-  const hi = Math.min(5, 1 + Math.floor(i / 4));
-  const lo = Math.max(1, hi - 2);
+  const wave = (Math.sin(i / 5 - Math.PI / 2) + 1) / 2;
+  const ramp = Math.min(4, i / 5);
+  const target = Math.round(1 + ramp * 0.7 + wave * 1.3);
+  const hi = Math.min(5, target + 1);
+  const lo = Math.max(1, target - 1);
   const band = pool.filter((c) => c.diff >= lo && c.diff <= hi && !recent.includes(c.id));
   const use = band.length ? band : pool.filter((c) => !recent.includes(c.id));
   return use[Math.floor(Math.random() * use.length)] || pool[0];

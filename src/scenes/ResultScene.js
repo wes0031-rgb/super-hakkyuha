@@ -1,12 +1,12 @@
-import { W, H } from '../config.js?v=1792018473';
-import { byId } from '../data/characters.js?v=1792018473';
-import { byStage, STAGES } from '../data/stages.js?v=1792018473';
-import { makeGradient } from '../level/textures.js?v=1792018473';
-import { finishRun, load } from '../save.js?v=1792018473';
+import { W, H } from '../config.js?v=1792026900';
+import { byId } from '../data/characters.js?v=1792026900';
+import { byStage, STAGES } from '../data/stages.js?v=1792026900';
+import { makeGradient } from '../level/textures.js?v=1792026900';
+import { finishRun, load } from '../save.js?v=1792026900';
 
-import { setupCamera } from '../hidpi.js?v=1792018473';
-import { unlock, sfx } from '../audio.js?v=1792018473';
-import { button, panel } from '../ui.js?v=1792018473';
+import { setupCamera } from '../hidpi.js?v=1792026900';
+import { unlock, sfx } from '../audio.js?v=1792026900';
+import { button, panel } from '../ui.js?v=1792026900';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -15,7 +15,8 @@ export default class ResultScene extends Phaser.Scene {
 
   init(d) {
     this.d = d && d.heroId ? d : {
-      cleared: true, score: 12340, tokens: 42, dist: 980,
+      cleared: true, score: 12340, tokens: 42, dist: 980, near: 7,
+      baseScore: 6800, bonusScore: 5540, bestMult: 3.4,
       heroId: 'jjujebi', stageId: 1,
       missions: [
         { id: 'a', text: '모으는 것 20개 줍기', star: 1, done: true, got: 42, need: 20 },
@@ -29,7 +30,8 @@ export default class ResultScene extends Phaser.Scene {
     setupCamera(this);
     this.input.on('pointerdown', () => { unlock(); sfx.click(); });
 
-    const { cleared, score, tokens, heroId, stageId, missions = [], dist = 0 } = this.d;
+    const { cleared, score, tokens, heroId, stageId, missions = [], dist = 0, near = 0,
+      baseScore = 0, bonusScore = 0, bestMult = 1 } = this.d;
     const endless = stageId === 'endless';
     const char = byId(heroId);
     const stage = endless ? { name: '끝없이 달리기' } : byStage(stageId);
@@ -63,17 +65,36 @@ export default class ResultScene extends Phaser.Scene {
 
     // 점수
     let y = 272;
-    panel(this, W / 2 - 300, y, 600, 92, { fixed: false, depth: -2 });
-    this.add.text(W / 2 - 276, y + 14, endless ? '달린 거리' : '점수', {
+    panel(this, W / 2 - 320, y, 640, 96, { fixed: false, depth: -2 });
+    this.add.text(W / 2 - 296, y + 14, endless ? '달린 거리' : '점수', {
       fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#9a7b68',
     });
-    this.add.text(W / 2 - 276, y + 34, endless ? `${dist}m` : String(score).padStart(6, '0'), {
+    this.add.text(W / 2 - 296, y + 34, endless ? `${dist}m` : String(score).padStart(6, '0'), {
       fontFamily: FONT, fontSize: '34px', fontStyle: '900', color: '#6b4a3a',
     });
-    this.add.image(W / 2 + 92, y + 50, `tok-${char.token}`).setScale(0.13);
-    this.add.text(W / 2 + 116, y + 32, `${tokens}개`, {
+    this.add.image(W / 2 + 36, y + 50, `tok-${char.token}`).setScale(0.13);
+    this.add.text(W / 2 + 60, y + 32, `${tokens}개`, {
       fontFamily: FONT, fontSize: '28px', fontStyle: '900', color: '#6b4a3a',
     });
+    if (near > 0) {
+      this.add.text(W / 2 + 150, y + 20, '아슬아슬', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#5aa9e6',
+      });
+      this.add.text(W / 2 + 150, y + 38, `${near}번`, {
+        fontFamily: FONT, fontSize: '24px', fontStyle: '900', color: '#6b4a3a',
+      });
+    }
+    if (bonusScore > 0) {
+      this.add.text(W / 2 + 206, y + 20, '배율 보너스', {
+        fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#b07a20',
+      });
+      this.add.text(W / 2 + 206, y + 38, `+${bonusScore.toLocaleString()}`, {
+        fontFamily: FONT, fontSize: '24px', fontStyle: '900', color: '#ff9f1c',
+      });
+      this.add.text(W / 2 + 206, y + 68, `최고 ×${bestMult.toFixed(1)}`, {
+        fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+      });
+    }
     if (isNewBest) {
       const nb = this.add.text(W / 2 + 230, y + 46, '최고 기록!', {
         fontFamily: FONT, fontSize: '19px', fontStyle: '900', color: '#ffffff',
@@ -82,14 +103,14 @@ export default class ResultScene extends Phaser.Scene {
       this.tweens.add({ targets: nb, scale: 1.12, duration: 420, yoyo: true, repeat: -1 });
     } else if (before > 0) {
       const gap = before - cur;
-      this.add.text(W / 2 + 230, y + 46,
+      this.add.text(W / 2 - 230, y + 70,
         gap > 0
           ? (endless ? `최고까지 ${gap}m` : `최고까지 ${gap.toLocaleString()}점`)
           : '최고 기록과 같아요', {
           fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#9a7b68',
         }).setOrigin(0.5);
     }
-    y += 104;
+    y += 108;
 
     // 미션
     if (missions.length) {

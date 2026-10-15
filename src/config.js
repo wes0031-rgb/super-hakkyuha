@@ -42,6 +42,15 @@ export const STUN_MS = 900;
 export const FALL_Y = GROUND_Y + 92;
 
 export const TOKEN_SCORE = 100;
+
+// 점수 배율 — 적극적으로 움직여야 오르고, 가만히 달리면 깎인다.
+// 생존과 점수를 다른 목표로 갈라 놓는 장치다.
+export const MULT_MAX = 5;
+export const MULT_HOLD = 2600;     // 마지막 행동 뒤 유지되는 시간
+export const MULT_DECAY = 0.0011;  // 그 뒤 1ms 당 깎이는 양
+export const MULT_GAIN = {
+  token: 0.1, stomp: 0.4, near: 0.3, brick: 0.2, spring: 0.2, power: 0.5,
+};
 // 이어 밟을수록 가파르게. 마리오가 100→200→400→800→…으로 올리는 이유다
 export const STOMP_SCORE = [200, 400, 800, 1600, 3200, 6000, 10000];
 
