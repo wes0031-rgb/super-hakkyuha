@@ -1,7 +1,7 @@
-import { CHARACTERS } from '../data/characters.js?v=1792031867';
-import { buildTextures } from '../level/textures.js?v=1792031867';
-import { W, H } from '../config.js?v=1792031867';
-import { setupCamera } from '../hidpi.js?v=1792031867';
+import { CHARACTERS } from '../data/characters.js?v=1792033814';
+import { buildTextures } from '../level/textures.js?v=1792033814';
+import { W, H } from '../config.js?v=1792033814';
+import { setupCamera } from '../hidpi.js?v=1792033814';
 
 const TOKENS = ['bone', 'clover', 'flower', 'heart', 'note', 'paw', 'ribbon', 'seed', 'snowflake'];
 const POWERS = ['boost', 'double', 'giant', 'heal', 'magnet', 'shield'];
@@ -63,7 +63,7 @@ export default class BootScene extends Phaser.Scene {
       const st = q.get('stage');
       this.scene.start('Play', {
         heroId: hero,
-        stageId: st === 'endless' ? 'endless' : Number(st || 1),
+        stageId: (st === 'endless' || st === 'daily') ? st : Number(st || 1),
       });
       return;
     }

@@ -1,12 +1,13 @@
-import { W, H } from '../config.js?v=1792031867';
-import { STAGES } from '../data/stages.js?v=1792031867';
-import { makeGradient } from '../level/textures.js?v=1792031867';
-import { load, maxOpen, endlessOpen } from '../save.js?v=1792031867';
-import { byId } from '../data/characters.js?v=1792031867';
-import { button } from '../ui.js?v=1792031867';
+import { W, H } from '../config.js?v=1792033814';
+import { STAGES } from '../data/stages.js?v=1792033814';
+import { makeGradient } from '../level/textures.js?v=1792033814';
+import { load, maxOpen, endlessOpen, dailyState } from '../save.js?v=1792033814';
+import { todayKey } from '../rng.js?v=1792033814';
+import { byId } from '../data/characters.js?v=1792033814';
+import { button } from '../ui.js?v=1792033814';
 
-import { setupCamera } from '../hidpi.js?v=1792031867';
-import { unlock, sfx } from '../audio.js?v=1792031867';
+import { setupCamera } from '../hidpi.js?v=1792033814';
+import { unlock, sfx } from '../audio.js?v=1792033814';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -33,8 +34,8 @@ export default class StageScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '18px', color: '#8a6a56',
     }).setOrigin(0.5);
 
-    const CWd = 186, CHt = 254, GX = 14;
-    const COUNT = STAGES.length + 1;
+    const CWd = 160, CHt = 254, GX = 12;
+    const COUNT = STAGES.length + 2;
     const x0 = W / 2 - (COUNT * CWd + (COUNT - 1) * GX) / 2;
 
     STAGES.forEach((s, i) => {
@@ -53,11 +54,11 @@ export default class StageScene extends Phaser.Scene {
       if (locked) th.setTint(0x9b93ad);
 
       this.add.text(cx, cy - 8, `${s.id}`, {
-        fontFamily: FONT, fontSize: '36px', fontStyle: '900',
+        fontFamily: FONT, fontSize: '34px', fontStyle: '900',
         color: locked ? '#6b5f85' : '#ffd977', stroke: '#7b5a48', strokeThickness: 7,
       }).setOrigin(0.5);
       this.add.text(cx, cy + 30, s.name, {
-        fontFamily: FONT, fontSize: '19px', fontStyle: '900',
+        fontFamily: FONT, fontSize: '17px', fontStyle: '900',
         color: locked ? '#6b5f85' : '#6b4a3a',
       }).setOrigin(0.5);
       this.add.text(cx, cy + 56, locked ? '앞 스테이지를 깨면 열려요' : s.hint, {
@@ -66,7 +67,9 @@ export default class StageScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       if (cleared) {
-        this.add.text(cx, cy + 94, `최고 ${String(data.best[s.id] || 0).padStart(6, '0')}`, {
+        this.add.text(cx, cy + 94, data.bestTime[s.id]
+          ? `${(data.bestTime[s.id] / 1000).toFixed(1)}초`
+          : `최고 ${String(data.best[s.id] || 0).padStart(6, '0')}`, {
           fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#7b5a48',
           backgroundColor: '#ffd977', padding: { x: 9, y: 4 },
         }).setOrigin(0.5);
@@ -116,6 +119,36 @@ export default class StageScene extends Phaser.Scene {
         box.on('pointerout', () => box.setStrokeStyle(5, 0xffb340));
         box.on('pointerup', () => this.scene.start('Select', { stageId: 'endless' }));
       }
+    }
+
+    // 오늘의 도전 — 모두 같은 길, 하루 한 판
+    {
+      const i = STAGES.length + 1;
+      const cx = x0 + i * (CWd + GX) + CWd / 2;
+      const cy = 272;
+      const st = dailyState(todayKey());
+      this.shadowG.fillStyle(0x7b5a48, 0.25);
+      this.shadowG.fillRoundedRect(cx - CWd / 2 + 4, cy - CHt / 2 + 8, CWd, CHt, 20);
+      const box = this.add.rectangle(cx, cy, CWd, CHt, 0xe8f3ff)
+        .setStrokeStyle(5, 0x5aa9e6);
+      this.add.text(cx, cy - 62, '오늘', {
+        fontFamily: FONT, fontSize: '32px', fontStyle: '900', color: '#5aa9e6',
+      }).setOrigin(0.5);
+      this.add.text(cx, cy + 30, '오늘의 도전', {
+        fontFamily: FONT, fontSize: '17px', fontStyle: '900', color: '#6b4a3a',
+      }).setOrigin(0.5);
+      this.add.text(cx, cy + 56, '모두 같은 길을 달려요', {
+        fontFamily: FONT, fontSize: '12px', color: '#9a7b68',
+        wordWrap: { width: CWd - 26 }, align: 'center',
+      }).setOrigin(0.5);
+      this.add.text(cx, cy + 94, st.done ? `오늘 ${st.score.toLocaleString()}` : '아직 안 했어요', {
+        fontFamily: FONT, fontSize: '12px', fontStyle: '700', color: '#7b5a48',
+        backgroundColor: st.done ? '#bfe4fa' : '#ffd977', padding: { x: 9, y: 4 },
+      }).setOrigin(0.5);
+      box.setInteractive({ useHandCursor: true });
+      box.on('pointerover', () => box.setStrokeStyle(5, 0xff7fa4));
+      box.on('pointerout', () => box.setStrokeStyle(5, 0x5aa9e6));
+      box.on('pointerup', () => this.scene.start('Select', { stageId: 'daily' }));
     }
 
     // 지금 데리고 갈 하뀨하

@@ -1,12 +1,12 @@
-import { W, H } from '../config.js?v=1792031867';
-import { byId } from '../data/characters.js?v=1792031867';
-import { byStage, STAGES } from '../data/stages.js?v=1792031867';
-import { makeGradient } from '../level/textures.js?v=1792031867';
-import { finishRun, load } from '../save.js?v=1792031867';
+import { W, H } from '../config.js?v=1792033814';
+import { byId } from '../data/characters.js?v=1792033814';
+import { byStage, STAGES } from '../data/stages.js?v=1792033814';
+import { makeGradient } from '../level/textures.js?v=1792033814';
+import { finishRun, load, saveGhost, saveDaily } from '../save.js?v=1792033814';
 
-import { setupCamera } from '../hidpi.js?v=1792031867';
-import { unlock, sfx } from '../audio.js?v=1792031867';
-import { button, panel } from '../ui.js?v=1792031867';
+import { setupCamera } from '../hidpi.js?v=1792033814';
+import { unlock, sfx } from '../audio.js?v=1792033814';
+import { button, panel } from '../ui.js?v=1792033814';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -15,7 +15,7 @@ export default class ResultScene extends Phaser.Scene {
 
   init(d) {
     this.d = d && d.heroId ? d : {
-      cleared: true, score: 12340, tokens: 42, dist: 980, near: 7,
+      cleared: true, score: 12340, tokens: 42, dist: 980, near: 7, ms: 48300,
       baseScore: 6800, bonusScore: 5540, bestMult: 3.4,
       heroId: 'jjujebi', stageId: 1,
       missions: [
@@ -31,13 +31,20 @@ export default class ResultScene extends Phaser.Scene {
     this.input.on('pointerdown', () => { unlock(); sfx.click(); });
 
     const { cleared, score, tokens, heroId, stageId, missions = [], dist = 0, near = 0,
-      baseScore = 0, bonusScore = 0, bestMult = 1, cause = null } = this.d;
+      baseScore = 0, bonusScore = 0, bestMult = 1, cause = null,
+      ms = 0, trail = null, daily = null } = this.d;
     const endless = stageId === 'endless';
     const char = byId(heroId);
     const stage = endless ? { name: '끝없이 달리기' } : byStage(stageId);
     const prev = load();
     const before = endless ? prev.bestDist : (prev.best[stageId] || 0);
-    const r = finishRun({ stageId, heroId, score, tokens, missions, cleared, dist });
+    const prevTime = prev.bestTime[stageId] || 0;
+    const r = finishRun({ stageId, heroId, score, tokens, missions, cleared, dist, ms });
+    // 최고 점수를 새로 썼으면 그 주행을 고스트로 남긴다
+    if (cleared && trail && score >= (load().best[stageId] || 0)) {
+      saveGhost(daily ? `daily-${daily}` : stageId, trail);
+    }
+    if (daily) saveDaily(daily, score);
     const news = r.news;
     const gotStars = r.gotStars;
     const cur = endless ? dist : score;
@@ -89,6 +96,16 @@ export default class ResultScene extends Phaser.Scene {
       this.add.text(W / 2 + 150, y + 38, `${near}번`, {
         fontFamily: FONT, fontSize: '24px', fontStyle: '900', color: '#6b4a3a',
       });
+    }
+    if (ms > 0 && !endless) {
+      const sec = (ms / 1000).toFixed(1);
+      this.add.text(W / 2 - 296, y + 68,
+        prevTime && cleared
+          ? `${sec}초  ·  가장 빠른 기록 ${(prevTime / 1000).toFixed(1)}초`
+          : `${sec}초`, {
+          fontFamily: FONT, fontSize: '13px', fontStyle: '700',
+          color: cleared && prevTime && ms < prevTime ? '#ff9f1c' : '#9a7b68',
+        });
     }
     if (bonusScore > 0) {
       this.add.text(W / 2 + 206, y + 20, '배율 보너스', {

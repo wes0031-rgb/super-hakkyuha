@@ -1,5 +1,5 @@
 // 작가 에셋에 없는 것만 코드로 그린다 — 히어로 물리 박스, 배경 구름·언덕, 깃발, 새장.
-import { HERO_W, HERO_H } from '../config.js?v=1792031867';
+import { HERO_W, HERO_H } from '../config.js?v=1792033814';
 
 const INK = 0x7b5a48;
 
@@ -126,6 +126,38 @@ export function buildTextures(scene) {
   gr.fillCircle(76, 70, 8);
   gr.fillCircle(52, 80, 6);
   gr.generateTexture('bg_moon', 120, 120);
+  gr.destroy();
+
+  // 꾸르릉 — 먹구름 두목
+  gr = g(scene);
+  gr.fillStyle(0x8f84ad, 1);
+  gr.fillCircle(60, 78, 46);
+  gr.fillCircle(126, 62, 58);
+  gr.fillCircle(196, 80, 44);
+  gr.fillRect(60, 74, 136, 56);
+  gr.lineStyle(7, 0x4c4160, 1);
+  gr.strokeCircle(60, 78, 46);
+  gr.strokeCircle(126, 62, 58);
+  gr.strokeCircle(196, 80, 44);
+  gr.fillStyle(0x2f2740, 1);
+  gr.fillEllipse(100, 86, 18, 24);
+  gr.fillEllipse(154, 86, 18, 24);
+  gr.lineStyle(8, 0x2f2740, 1);
+  gr.beginPath().moveTo(78, 60).lineTo(112, 74).strokePath();
+  gr.beginPath().moveTo(176, 60).lineTo(142, 74).strokePath();
+  gr.beginPath(); gr.moveTo(104, 122); gr.lineTo(127, 108); gr.lineTo(150, 122); gr.strokePath();
+  gr.generateTexture('boss', 256, 150);
+  gr.destroy();
+
+  // 보스가 떨구는 번개
+  gr = g(scene);
+  gr.fillStyle(0xffd977, 1);
+  gr.beginPath();
+  gr.moveTo(26, 0); gr.lineTo(6, 44); gr.lineTo(22, 44);
+  gr.lineTo(10, 86); gr.lineTo(42, 36); gr.lineTo(24, 36);
+  gr.closePath(); gr.fillPath();
+  gr.lineStyle(5, 0xd98b2b, 1); gr.strokePath();
+  gr.generateTexture('boss_bolt', 48, 90);
   gr.destroy();
 
   // 새장 — 쭈일리언 구출 연출

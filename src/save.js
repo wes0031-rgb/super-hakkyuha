@@ -11,6 +11,9 @@ const EMPTY = {
   bank: 0,           // 모은 것 — 업그레이드에 쓴다
   upgrades: {},      // id → 단계
   lastHero: 'jjujebi',
+  bestTime: {},      // 스테이지별 가장 빠른 기록(ms)
+  ghosts: {},        // 스테이지별 최고 주행 자취
+  daily: {},         // { date, score, done }
 };
 
 export function load() {
@@ -39,7 +42,32 @@ export function endlessOpen() {
 }
 
 // 한 판이 끝나면 부른다. 새로 들어온 펫과 별을 돌려준다.
-export function finishRun({ stageId, heroId, score, tokens, missions, cleared, dist }) {
+export function saveGhost(stageId, trail) {
+  if (!trail || trail.length < 8) return;
+  const d = load();
+  d.ghosts[stageId] = trail;
+  save(d);
+}
+
+export function loadGhost(stageId) {
+  return load().ghosts[stageId] || null;
+}
+
+export function saveDaily(date, score) {
+  const d = load();
+  if (!d.daily || d.daily.date !== date) d.daily = { date, score: 0, done: false };
+  d.daily.done = true;
+  if (score > d.daily.score) d.daily.score = score;
+  save(d);
+}
+
+export function dailyState(date) {
+  const d = load();
+  if (!d.daily || d.daily.date !== date) return { date, score: 0, done: false };
+  return d.daily;
+}
+
+export function finishRun({ stageId, heroId, score, tokens, missions, cleared, dist, ms }) {
   const d = load();
   const news = [];
   let gotStars = 0;
@@ -64,6 +92,7 @@ export function finishRun({ stageId, heroId, score, tokens, missions, cleared, d
       news.push('zzulien');
     }
     if (!d.best[stageId] || score > d.best[stageId]) d.best[stageId] = score;
+    if (ms && (!d.bestTime[stageId] || ms < d.bestTime[stageId])) d.bestTime[stageId] = ms;
   }
 
   d.lastHero = heroId;

@@ -1,13 +1,15 @@
-import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792031867';
-import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792031867';
-import { THEME_TILE } from '../data/stages.js?v=1792031867';
+import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792033814';
+import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792033814';
+import { THEME_TILE } from '../data/stages.js?v=1792033814';
+import { makeRng } from '../rng.js?v=1792033814';
 
 // 작가 에셋은 2배 해상도라 절반으로 줄여 쓴다. 타일 128 → 64.
 const S = 0.5;
 const TOKEN_S = 0.32;
 const POWER_S = 0.36;
 
-export function pickOrder(stage) {
+export function pickOrder(stage, seed = 0) {
+  const rand = seed ? makeRng(seed) : Math.random;
   const [lo0, hi0] = stage.diff;
   const order = [byTag('start')[0]];
   const recent = [];
@@ -23,7 +25,7 @@ export function pickOrder(stage) {
     else if (i % 13 === 5) {
       // 거대화는 세지만 금방 지루해져서 드물게 나오게 가중치를 낮춘다
       const weighted = power.flatMap((c) => (c.id === 'giant_lane' ? [c] : [c, c]));
-      pick = weighted[Math.floor(Math.random() * weighted.length)];
+      pick = weighted[Math.floor(rand() * weighted.length)];
     }
     else if (i % 16 === 9) pick = heal[0];
     else {
@@ -42,7 +44,7 @@ export function pickOrder(stage) {
       const hi = Math.min(5, target + (teach ? 0 : 1));
       const band = pool.filter((c) => c.diff >= lo && c.diff <= hi && !recent.includes(c.id));
       const use = band.length ? band : pool.filter((c) => c.diff <= hi0 && !recent.includes(c.id));
-      pick = use[Math.floor(Math.random() * use.length)] || pool[0];
+      pick = use[Math.floor(rand() * use.length)] || pool[0];
     }
     hard = pick.diff >= 4 ? hard + 1 : 0;
     recent.push(pick.id);

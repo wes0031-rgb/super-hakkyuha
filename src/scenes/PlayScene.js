@@ -2,19 +2,20 @@ import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
   HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE, HERO_H, HERO_SLIDE_H,
   MULT_MAX, MULT_HOLD, MULT_DECAY, MULT_GAIN,
-} from '../config.js?v=1792031867';
-import { byId, MOTIONS } from '../data/characters.js?v=1792031867';
-import { byStage, STAGES } from '../data/stages.js?v=1792031867';
-import { rollMissions } from '../data/missions.js?v=1792031867';
-import { load, lv } from '../save.js?v=1792031867';
-import { byUp, valueOf } from '../data/upgrades.js?v=1792031867';
-import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792031867';
-import { makeGradient } from '../level/textures.js?v=1792031867';
-import Hero from '../objects/Hero.js?v=1792031867';
-import { setupCamera, scrollTo } from '../hidpi.js?v=1792031867';
-import { panel, bar, button } from '../ui.js?v=1792031867';
-import { sfx, startMusic, stopMusic, setMusicRate, unlock, setMuted, isMuted } from '../audio.js?v=1792031867';
-import { rowY } from '../config.js?v=1792031867';
+} from '../config.js?v=1792033814';
+import { byId, MOTIONS } from '../data/characters.js?v=1792033814';
+import { byStage, STAGES } from '../data/stages.js?v=1792033814';
+import { rollMissions } from '../data/missions.js?v=1792033814';
+import { load, lv, loadGhost, saveGhost, saveDaily } from '../save.js?v=1792033814';
+import { todaySeed, todayKey, makeRng } from '../rng.js?v=1792033814';
+import { byUp, valueOf } from '../data/upgrades.js?v=1792033814';
+import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792033814';
+import { makeGradient } from '../level/textures.js?v=1792033814';
+import Hero from '../objects/Hero.js?v=1792033814';
+import { setupCamera, scrollTo } from '../hidpi.js?v=1792033814';
+import { panel, bar, button } from '../ui.js?v=1792033814';
+import { sfx, startMusic, stopMusic, setMusicRate, unlock, setMuted, isMuted } from '../audio.js?v=1792033814';
+import { rowY } from '../config.js?v=1792033814';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -24,10 +25,15 @@ export default class PlayScene extends Phaser.Scene {
   init(data) {
     this.heroId = data.heroId;
     this.endless = data.stageId === 'endless';
+    this.daily = data.stageId === 'daily';
+    this.seed = this.daily ? todaySeed() : 0;
     this.stage = this.endless
       ? { id: 'endless', name: '끝없이 달리기', theme: 'forest', chunks: 0,
           diff: [1, 5], sky: ['#9fd8f5', '#e8f7ff'], hint: '어디까지 갈 수 있을까요' }
-      : byStage(data.stageId || 1);
+      : this.daily
+        ? { id: 'daily', name: '오늘의 도전', theme: ['forest', 'dessert', 'sky', 'night'][todaySeed() % 4],
+            chunks: 22, diff: [2, 5], sky: ['#ffd9b0', '#fff2e0'], hint: '오늘은 모두 같은 길을 달려요' }
+        : byStage(data.stageId || 1);
     this.char = byId(this.heroId);
     this.tokenKey = `tok-${this.char.token}`;
 
@@ -60,6 +66,9 @@ export default class PlayScene extends Phaser.Scene {
     this.multUntil = 0;
     this.baseScore = 0;    // 배율 없이 번 점수
     this.bonusScore = 0;   // 배율로 더 번 점수
+    this.startMs = 0;
+    this.trail = [];       // 내 자취 — 최고 기록이면 고스트로 남는다
+    this.trailAt = 0;
   }
 
   preload() {
@@ -109,7 +118,7 @@ export default class PlayScene extends Phaser.Scene {
       this.goalX = 1e7;
       this.ensureAhead(0);
     } else {
-      this.order = pickOrder(this.stage);
+      this.order = pickOrder(this.stage, this.seed);
       const { groups, width, goalX } = buildWorld(this, this.order, this.stage, this.tokenKey);
       this.G = groups;
       this.worldW = width;
@@ -121,11 +130,13 @@ export default class PlayScene extends Phaser.Scene {
     this.camX = 0;
 
     this.drawBackground();
-    if (!this.endless) this.drawGoal();
+    if (!this.endless && !this.daily) this.drawGoal();
+    if (this.stage.rescue) this.setupBoss();
 
     const heroMeta = this.cache.json.get(`meta-${this.heroId}`).anims;
     this.hero = new Hero(this, 180, GROUND_Y, this.char, heroMeta);
 
+    this.setupGhost();
     this.shadow = this.add.image(0, 0, 'fx_shadow').setDepth(5).setAlpha(0.5);
     this.combo = 0;
     this.comboUntil = 0;
@@ -143,6 +154,7 @@ export default class PlayScene extends Phaser.Scene {
     this.wasGround = true;
     this.lastSonic = 0;
     scrollTo(this, 0);
+    this.startMs = this.time.now;
     this.cameras.main.fadeIn(180);
   }
 
@@ -271,6 +283,110 @@ export default class PlayScene extends Phaser.Scene {
       this.add.image(i * 230 + 60, GROUND_Y + 6, 'bg_bush')
         .setOrigin(0.5, 1).setScrollFactor(0.9).setDepth(-19)
         .setScale(0.55 + (i % 3) * 0.2).setTint(P.bush);
+    }
+  }
+
+  // 먹구름성 끝 — 꾸르릉이 앞서 달아나며 번개를 떨군다
+  setupBoss() {
+    this.bossHp = 3;
+    this.bossDown = false;
+    this.bossNext = 0;
+    this.bossAt = this.goalX - 2400;        // 이 지점부터 나타난다
+    this.boss = this.add.image(0, 150, 'boss').setScale(0.58).setDepth(12).setVisible(false);
+    this.bolts = this.physics.add.group({ allowGravity: false });
+    this.physics.add.overlap(this.hero.box, this.bolts, (box, b) => {
+      if (!b.active) return;
+      b.destroy();
+      this.lastCause = '번개';
+      this.damage(HP_HIT);
+    });
+    this.bossBarG = this.add.graphics().setScrollFactor(0).setDepth(58).setVisible(false);
+  }
+
+  updateBoss(time, delta) {
+    if (!this.boss || this.bossHp <= 0) return;
+    const hero = this.hero;
+    if (hero.box.x < this.bossAt) return;
+    if (!this.boss.visible) {
+      this.boss.setVisible(true);
+      this.bossBarG.setVisible(true);
+      this.toast('꾸르릉이 나타났어요!');
+      this.cameras.main.shake(400, 0.006);
+    }
+
+    // 평소엔 높이 떠 있고, 가끔 내려와 밟을 틈을 준다
+    const lowTime = this.bossDown;
+    const tx = hero.box.x + 420;
+    const ty = lowTime ? GROUND_Y - 150 : 180;
+    this.boss.x = Phaser.Math.Linear(this.boss.x || tx, tx, 0.08);
+    this.boss.y = Phaser.Math.Linear(this.boss.y, ty, 0.06);
+
+    if (time > this.bossNext) {
+      if (this.bossDown) {
+        this.bossDown = false;
+        this.bossNext = time + 3400;
+      } else {
+        // 번개를 몇 발 떨군 뒤 내려온다
+        for (let i = 0; i < 3; i++) {
+          this.time.delayedCall(i * 260, () => this.dropBolt());
+        }
+        this.bossDown = true;
+        this.bossNext = time + 2600;
+      }
+    }
+
+    // 내려와 있을 때만 밟힌다
+    if (this.bossDown && !this.bossHit) {
+      const dx = Math.abs(hero.box.x - this.boss.x);
+      const top = this.boss.y - this.boss.displayHeight / 2;
+      if (dx < 90 && hero.body.velocity.y > 60 && hero.box.y < top + 60) {
+        this.hitBoss();
+      }
+    }
+
+    // 체력 막대
+    this.bossBarG.clear();
+    const w = 420;
+    this.bossBarG.fillStyle(0x2f2740, 0.85);
+    this.bossBarG.fillRoundedRect(W / 2 - w / 2, 102, w, 26, 13);
+    this.bossBarG.fillStyle(0xff7fa4, 1);
+    this.bossBarG.fillRoundedRect(W / 2 - w / 2 + 4, 106, (w - 8) * (this.bossHp / 3), 18, 9);
+  }
+
+  dropBolt() {
+    if (!this.bolts || this.bossHp <= 0) return;
+    const x = this.hero.box.x + 240 + Math.random() * 420;
+    const b = this.bolts.create(x, 40, 'boss_bolt').setScale(0.7).setDepth(11);
+    b.body.setSize(34, 70).setOffset(7, 10);
+    b.setVelocityY(560);
+    this.time.delayedCall(2600, () => { if (b.active) b.destroy(); });
+  }
+
+  hitBoss() {
+    this.bossHit = true;
+    this.bossHp--;
+    this.hero.stomp(1.15);
+    this.hitStop(110);
+    this.cameras.main.shake(260, 0.01);
+    this.sparkle(this.boss.x, this.boss.y, 9, 'fx_star');
+    this.hitMark(this.boss.x, this.boss.y);
+    this.addScore(3000);
+    this.bumpMult('stomp');
+    sfx.stomp();
+    this.tweens.add({ targets: this.boss, alpha: 0.3, duration: 90, yoyo: true, repeat: 2 });
+    this.time.delayedCall(700, () => { this.bossHit = false; });
+    this.bossDown = false;
+    this.bossNext = this.time.now + 2200;
+
+    if (this.bossHp <= 0) {
+      this.bossBarG.setVisible(false);
+      this.toast('꾸르릉을 물리쳤어요!');
+      this.tweens.add({
+        targets: this.boss, y: -300, angle: 220, alpha: 0, duration: 1200,
+        onComplete: () => this.boss.destroy(),
+      });
+      this.bolts.clear(true, true);
+      sfx.goal();
     }
   }
 
@@ -544,6 +660,9 @@ export default class PlayScene extends Phaser.Scene {
     this.progTrack.draw(0);
     this.progIcon = this.add.image(780, 59, `base-${this.heroId}`)
       .setScale(0.05).setScrollFactor(0).setDepth(53);
+    this.timeTxt = this.add.text(1248, 68, '0.0초', {
+      fontFamily: FONT, fontSize: '15px', fontStyle: '900', color: '#8a6a56',
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(53);
     this.distTxt = this.add.text(1248, 24, '0m', {
       fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#8a6a56',
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(53);
@@ -990,6 +1109,9 @@ export default class PlayScene extends Phaser.Scene {
     scrollTo(this, this.camX);
 
     if (this.endless) this.ensureAhead(hero.box.x);
+    if (this.boss) this.updateBoss(time, delta);
+    this.recordTrail(time);
+    this.updateGhost(time);
     this.countSlidePass();
     this.checkNearMiss();
     this.updateEnemies(time);
@@ -1040,6 +1162,7 @@ export default class PlayScene extends Phaser.Scene {
     const p = Phaser.Math.Clamp(hero.box.x / this.goalX, 0, 1);
     const dist = Math.floor(hero.box.x / 10);
     this.distTxt.setText(`${dist}m`);
+    this.timeTxt.setText(`${((time - this.startMs) / 1000).toFixed(1)}초`);
     this.tally('dist', dist);
     this.checkMilestone();
     this.checkBest();
@@ -1080,6 +1203,45 @@ export default class PlayScene extends Phaser.Scene {
       this.toast('클리어!');
     }
     this.time.delayedCall(1900, () => this.finish(true));
+  }
+
+  // 지난 최고 기록이 반투명으로 같이 달린다. 혼자 달리는 것보다 낫다.
+  setupGhost() {
+    if (this.endless) return;
+    const g = loadGhost(this.daily ? `daily-${todayKey()}` : this.stage.id);
+    if (!g || g.length < 8) return;
+    this.ghostData = g;
+    this.ghostIdx = 0;
+    this.ghost = this.add.sprite(g[0][0], g[0][1], `${this.heroId}-run`)
+      .setDepth(3).setAlpha(0.34).setTint(0x9fd6f5);
+    const m = this.cache.json.get(`meta-${this.heroId}`).anims.run;
+    this.ghost.setOrigin(m.origin.x, m.origin.y);
+    this.ghost.play(`${this.heroId}-run`);
+    this.ghostTxt = this.add.text(0, 0, '최고 기록', {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '900', color: '#5aa9e6',
+    }).setOrigin(0.5, 1).setDepth(3).setAlpha(0.7);
+  }
+
+  updateGhost(time) {
+    if (!this.ghost) return;
+    const i = Math.floor((time - this.startMs) / 90);
+    if (i >= this.ghostData.length) {
+      this.ghost.setVisible(false);
+      if (this.ghostTxt) this.ghostTxt.setVisible(false);
+      return;
+    }
+    const [x, y] = this.ghostData[Math.max(0, i)];
+    this.ghost.setPosition(x, y);
+    this.ghostTxt.setPosition(x, y - 150);
+  }
+
+  // 자취를 남긴다. 최고 기록이면 다음 판에 고스트로 같이 달린다.
+  recordTrail(time) {
+    if (this.endless || this.over) return;
+    if (time - this.trailAt < 90) return;
+    this.trailAt = time;
+    this.trail.push([Math.round(this.hero.box.x), Math.round(this.hero.box.y)]);
+    if (this.trail.length > 1400) this.trail.shift();
   }
 
   tileAt(worldX, row) {
@@ -1253,6 +1415,9 @@ export default class PlayScene extends Phaser.Scene {
         missions: this.missions.map((m) => ({ ...m })),
         near: this.nearCount || 0,
         cause: this.lastCause || null,
+        ms: Math.round(this.time.now - this.startMs),
+        trail: this.trail,
+        daily: this.daily ? todayKey() : null,
         baseScore: Math.round(this.baseScore),
         bonusScore: Math.round(this.bonusScore),
         bestMult: Math.round((this.peakMult || 1) * 10) / 10,

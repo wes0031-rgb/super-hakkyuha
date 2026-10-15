@@ -9,7 +9,7 @@
 // 규칙 — 구멍 4칸 이하, 청크 양 끝은 지면, 매달린 것 아래는 구멍 금지.
 // `validateChunks()` 와 `도구/레벨검증.py` 가 검사한다.
 
-import { CHUNK_COLS } from '../config.js?v=1792031867';
+import { CHUNK_COLS } from '../config.js?v=1792033814';
 
 const C = (id, diff, rows, tag = null) => ({ id, diff, rows, tag });
 
