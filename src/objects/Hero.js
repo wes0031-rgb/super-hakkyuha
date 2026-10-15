@@ -1,9 +1,9 @@
-import { sfx } from '../audio.js?v=1792026900';
+import { sfx } from '../audio.js?v=1792031867';
 import {
   HERO_W, HERO_H, HERO_SLIDE_H, JUMP_V, JUMP2_V, JUMP_CUT, SPRING_V,
   COYOTE_MS, BUFFER_MS, SPEED_MIN, SPEED_MAX, SPEED_RAMP,
   BOOST_MS, GIANT_MS, INVULN_MS, MAGNET_MS, SLIP_MS, STUN_MS,
-} from '../config.js?v=1792026900';
+} from '../config.js?v=1792031867';
 
 // 물리 바디는 보이지 않는 사각형이고, 그림은 매 프레임 그 바닥에 발을 맞춘다.
 // 모션마다 칸 크기가 달라도 발 위치가 흔들리지 않는다.
@@ -52,6 +52,7 @@ export default class Hero {
   get speed() {
     let s = this.baseSpeed;
     if (this.boosting) s *= 1.55;
+    if (this.sliding && this.stats.slideSpeed) s *= this.stats.slideSpeed;
     if (this.slipping) s *= 1.3;
     if (this.stunned) s *= 0.4;
     return s;
@@ -114,7 +115,7 @@ export default class Hero {
     const grounded = this.body.blocked.down || this.body.touching.down;
     const coyote = now - this.lastGround < COYOTE_MS;
     if (grounded || coyote) {
-      this.body.setVelocityY(-JUMP_V);
+      this.body.setVelocityY(-JUMP_V * (this.stats.jump || 1));
       this.jumpsLeft = this.maxJumps - 1;
       this.lastGround = -9999;
       this.lastJumpPress = -9999;
@@ -127,7 +128,7 @@ export default class Hero {
     }
     if (this.jumpsLeft > 0) {
       this.jumpsLeft--;
-      this.body.setVelocityY(-JUMP2_V * (this.stats.air || 1));
+      this.body.setVelocityY(-JUMP2_V * (this.stats.air || 1) * (this.stats.jump || 1));
       this.lastJumpPress = -9999;
       this.play('double_jump', true);
       this.squash(0.86, 1.18);
@@ -168,7 +169,7 @@ export default class Hero {
 
   hurt(now) {
     this.squash(1.3, 0.76);
-    this.invulnUntil = now + INVULN_MS;
+    this.invulnUntil = now + INVULN_MS * (this.stats.tough || 1);
     this.play('hit', true);
     this.box.setVelocityY(-300);
   }
@@ -265,6 +266,11 @@ export default class Hero {
       const v = Phaser.Math.Clamp(this.body.velocity.y / 900, -1, 1);
       ay = 1 + Math.abs(v) * 0.10 * (v < 0 ? 1 : 0.7);
       ax = 1 - Math.abs(v) * 0.07;
+    }
+
+    // 사뿐히 떨어지는 캐릭터는 하강만 느리게
+    if (this.stats.floaty && !grounded && this.body.velocity.y > 0) {
+      this.body.velocity.y *= this.stats.floaty ** (dt / 16.7 * 0.12);
     }
 
     this.art.x = this.box.x;

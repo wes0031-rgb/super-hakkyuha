@@ -6,6 +6,11 @@ let master = null;
 let musicGain = null;
 let musicTimer = null;
 let muted = false;
+let musicSet = null;
+let musicRate = 1;
+let musicStep = 0;
+let musicTick = null;
+let currentGap = 0;
 
 function ready() {
   if (ctx) return true;
@@ -124,21 +129,43 @@ const THEME_SET = {
 
 export function startMusic(theme = 'forest') {
   if (!ready() || musicTimer) return;
-  const set = THEME_SET[theme] || THEME_SET.forest;
-  const step = 60 / set.bpm / 2;
-  let i = 0;
-  const tick = () => {
-    if (muted) { i++; return; }
-    const semi = set.root + set.pat[i % set.pat.length];
-    tone(hz(semi) * 2, step * 1.6, { type: set.wave, vol: 0.1, dest: musicGain });
-    if (i % 6 === 0) tone(hz(set.root - 12), step * 3, { type: 'sine', vol: 0.14, dest: musicGain });
-    if (i % 12 === 6) tone(hz(semi + 12) * 2, step, { type: 'sine', vol: 0.05, dest: musicGain });
-    i++;
+  musicSet = THEME_SET[theme] || THEME_SET.forest;
+  musicRate = 1;
+  musicStep = 0;
+  const play = () => {
+    const set = musicSet;
+    const step = 60 / (set.bpm * musicRate) / 2;
+    if (!muted) {
+      const i = musicStep;
+      const semi = set.root + set.pat[i % set.pat.length];
+      tone(hz(semi) * 2, step * 1.6, { type: set.wave, vol: 0.1, dest: musicGain });
+      if (i % 6 === 0) tone(hz(set.root - 12), step * 3, { type: 'sine', vol: 0.14, dest: musicGain });
+      if (i % 12 === 6) tone(hz(semi + 12) * 2, step, { type: 'sine', vol: 0.05, dest: musicGain });
+      // 빨라질수록 사이에 한 음이 더 낀다
+      if (musicRate > 1.18 && i % 2 === 1) {
+        tone(hz(semi + 7) * 2, step * 0.8, { type: 'sine', vol: 0.05, dest: musicGain });
+      }
+    }
+    musicStep++;
   };
-  tick();
-  musicTimer = setInterval(tick, step * 1000);
+  musicTick = play;
+  play();
+  currentGap = 60 / musicSet.bpm / 2 * 1000;
+  musicTimer = setInterval(play, currentGap);
+}
+
+// 배율이 오를수록 음악이 빨라진다. 1 ~ 1.35 사이.
+export function setMusicRate(r) {
+  const next = Math.max(0.8, Math.min(1.35, r));
+  if (Math.abs(next - musicRate) < 0.02) return;
+  musicRate = next;
+  if (!musicTimer || !musicTick) return;
+  clearInterval(musicTimer);
+  currentGap = 60 / (musicSet.bpm * musicRate) / 2 * 1000;
+  musicTimer = setInterval(musicTick, currentGap);
 }
 
 export function stopMusic() {
   if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  musicTick = null;
 }

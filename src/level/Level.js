@@ -1,6 +1,6 @@
-import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792026900';
-import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792026900';
-import { THEME_TILE } from '../data/stages.js?v=1792026900';
+import { CHUNKS, byTag, normal, validateChunks } from '../data/chunks.js?v=1792031867';
+import { TILE, ROWS, CHUNK_COLS, GROUND_Y, H, rowY } from '../config.js?v=1792031867';
+import { THEME_TILE } from '../data/stages.js?v=1792031867';
 
 // 작가 에셋은 2배 해상도라 절반으로 줄여 쓴다. 타일 128 → 64.
 const S = 0.5;

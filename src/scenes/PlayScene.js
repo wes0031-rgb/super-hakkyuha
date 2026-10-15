@@ -2,19 +2,19 @@ import {
   W, H, TILE, GROUND_Y, FALL_Y, CHUNK_COLS,
   HP_HIT, HP_PIT, HP_HEART, TOKEN_SCORE, STOMP_SCORE, HERO_H, HERO_SLIDE_H,
   MULT_MAX, MULT_HOLD, MULT_DECAY, MULT_GAIN,
-} from '../config.js?v=1792026900';
-import { byId, MOTIONS } from '../data/characters.js?v=1792026900';
-import { byStage, STAGES } from '../data/stages.js?v=1792026900';
-import { rollMissions } from '../data/missions.js?v=1792026900';
-import { load, lv } from '../save.js?v=1792026900';
-import { byUp, valueOf } from '../data/upgrades.js?v=1792026900';
-import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792026900';
-import { makeGradient } from '../level/textures.js?v=1792026900';
-import Hero from '../objects/Hero.js?v=1792026900';
-import { setupCamera, scrollTo } from '../hidpi.js?v=1792026900';
-import { panel, bar } from '../ui.js?v=1792026900';
-import { sfx, startMusic, stopMusic, unlock, setMuted, isMuted } from '../audio.js?v=1792026900';
-import { rowY } from '../config.js?v=1792026900';
+} from '../config.js?v=1792031867';
+import { byId, MOTIONS } from '../data/characters.js?v=1792031867';
+import { byStage, STAGES } from '../data/stages.js?v=1792031867';
+import { rollMissions } from '../data/missions.js?v=1792031867';
+import { load, lv } from '../save.js?v=1792031867';
+import { byUp, valueOf } from '../data/upgrades.js?v=1792031867';
+import { pickOrder, buildWorld, makeGroups, buildChunk, endlessPick } from '../level/Level.js?v=1792031867';
+import { makeGradient } from '../level/textures.js?v=1792031867';
+import Hero from '../objects/Hero.js?v=1792031867';
+import { setupCamera, scrollTo } from '../hidpi.js?v=1792031867';
+import { panel, bar, button } from '../ui.js?v=1792031867';
+import { sfx, startMusic, stopMusic, setMusicRate, unlock, setMuted, isMuted } from '../audio.js?v=1792031867';
+import { rowY } from '../config.js?v=1792031867';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -439,16 +439,19 @@ export default class PlayScene extends Phaser.Scene {
       }
       return;
     }
+    this.lastCause = { slime: '슬라임', bee: '벌', ghost: '유령', chestnut: '밤송이' }[kind] || '적';
     this.damage(HP_HIT, kind === 'chestnut');
   }
 
   touchHazard(o) {
     if (this.hero.locked) return;
     if (o.getData('kind') === 'hang' && this.hero.sliding) return;
+    this.lastCause = { spike: '가시', hang: '매달린 것', tall: '높은 기둥' }[o.getData('kind')] || '장애물';
     this.damage(HP_HIT, o.getData('kind') === 'spike');
   }
 
   killEnemy(e, squash = false, drop = 0) {
+    if (drop > 0 && this.char.stats.luck && Math.random() < this.char.stats.luck) drop += 1;
     for (let i = 0; i < drop; i++) {
       this.popToken(e.x + (i - (drop - 1) / 2) * 34, e.y - e.displayHeight * 0.6);
     }
@@ -724,16 +727,21 @@ export default class PlayScene extends Phaser.Scene {
 
   // 적극적인 행동마다 배율이 오른다
   bumpMult(kind) {
-    const g = MULT_GAIN[kind] || 0.1;
+    let g = MULT_GAIN[kind] || 0.1;
+    if (kind === 'brick' && this.char.stats.brickMult) g = this.char.stats.brickMult;
     this.mult = Math.min(MULT_MAX, this.mult + g);
-    this.multUntil = this.time.now + MULT_HOLD;
+    this.multUntil = this.time.now + MULT_HOLD + (this.char.stats.holdBonus || 0);
     if (this.mult > (this.peakMult || 1)) this.peakMult = this.mult;
   }
 
   updateMult(time, delta) {
-    if (this.mult <= 1) return;
-    if (time < this.multUntil) return;
-    this.mult = Math.max(1, this.mult - delta * MULT_DECAY);
+    if (this.mult > 1 && time >= this.multUntil) {
+      this.mult = Math.max(1, this.mult - delta * MULT_DECAY);
+    }
+    // 잘 풀릴수록 음악이 빨라진다
+    const want = 1 + (this.mult - 1) / (MULT_MAX - 1) * 0.32
+      + (this.hero.boosting ? 0.08 : 0);
+    setMusicRate(want);
   }
 
   bumpCombo(now) {
@@ -751,7 +759,8 @@ export default class PlayScene extends Phaser.Scene {
 
   // 번 점수는 기본과 배율분으로 나눠 센다. 결과 화면에서 어디서 났는지 보여 준다.
   addScore(n, useMult = true) {
-    const m = useMult ? this.mult : 1;
+    let m = useMult ? this.mult : 1;
+    if (useMult && this.hero.boosting && this.char.stats.boostMult) m *= this.char.stats.boostMult;
     const got = Math.round(n * m);
     this.baseScore += n;
     this.bonusScore += got - n;
@@ -816,14 +825,63 @@ export default class PlayScene extends Phaser.Scene {
     if (n >= 5) this.cameras.main.flash(140, 255, 236, 180);
   }
 
+  togglePause() {
+    if (this.over) return;
+    if (this.paused) { this.resumeGame(); return; }
+    this.paused = true;
+    this.physics.world.pause();
+    this.anims.pauseAll();
+    stopMusic();
+
+    const g = this.add.container(0, 0).setScrollFactor(0).setDepth(80);
+    const dim = this.add.rectangle(0, 0, W, H, 0x2b2436, 0.72).setOrigin(0, 0);
+    const t = this.add.text(W / 2, 240, '잠깐 멈춤', {
+      fontFamily: FONT, fontSize: '56px', fontStyle: '900', color: '#ffffff',
+      stroke: '#7b5a48', strokeThickness: 11,
+    }).setOrigin(0.5);
+    const hint = this.add.text(W / 2, 306, 'Esc · P 로 이어서 · M 으로 소리 끄고 켜기', {
+      fontFamily: FONT, fontSize: '17px', fontStyle: '700', color: '#ffe6c0',
+    }).setOrigin(0.5);
+    g.add([dim, t, hint]);
+    this.pauseUI = g;
+
+    const b1 = button(this, W / 2 - 170, 420, 300, 68, '이어서 하기',
+      () => this.resumeGame(), { size: '24px' });
+    const b2 = button(this, W / 2 + 170, 420, 300, 68, '그만두기',
+      () => { this.cleanupPause(); this.scene.start('Stage'); },
+      { size: '24px', fill: 0xffffff, hover: 0xfff2d0 });
+    [b1, b2].forEach((b) => {
+      b.g.setScrollFactor(0).setDepth(81);
+      b.t.setScrollFactor(0).setDepth(82);
+      b.zone.setScrollFactor(0);
+    });
+    this.pauseBtns = [b1, b2];
+  }
+
+  cleanupPause() {
+    if (this.pauseUI) { this.pauseUI.destroy(); this.pauseUI = null; }
+    if (this.pauseBtns) {
+      this.pauseBtns.forEach((b) => { b.g.destroy(); b.t.destroy(); b.zone.destroy(); });
+      this.pauseBtns = null;
+    }
+    this.paused = false;
+  }
+
+  resumeGame() {
+    this.cleanupPause();
+    this.physics.world.resume();
+    this.anims.resumeAll();
+    startMusic(this.stage.theme);
+  }
+
   // 아주 짧게 멈춘다. 눈에는 안 보이고 손에만 걸리는 게 맞는 길이다.
   hitStop(ms) {
-    if (this.stopping || this.over) return;
+    if (this.stopping || this.over || this.paused) return;
     this.stopping = true;
     this.physics.world.pause();
     this.anims.pauseAll();
     window.setTimeout(() => {
-      if (!this.scene || !this.scene.isActive()) return;
+      if (!this.scene || !this.scene.isActive() || this.paused) { this.stopping = false; return; }
       this.physics.world.resume();
       this.anims.resumeAll();
       this.stopping = false;
@@ -875,7 +933,8 @@ export default class PlayScene extends Phaser.Scene {
     k.on('keydown-UP', press);
     k.on('keyup-SPACE', release);
     k.on('keyup-UP', release);
-    k.on('keydown-ESC', () => { stopMusic(); this.scene.start('Stage'); });
+    k.on('keydown-ESC', () => this.togglePause());
+    k.on('keydown-P', () => this.togglePause());
     k.on('keydown-M', () => { setMuted(!isMuted()); this.toast(isMuted() ? '소리 끔' : '소리 켬'); });
 
     this.touchSlide = false;
@@ -894,7 +953,7 @@ export default class PlayScene extends Phaser.Scene {
   // ── 루프 ───────────────────────────────────────────────
   update(time, delta) {
     const hero = this.hero;
-    if (!hero) return;
+    if (!hero || this.paused) return;
 
     if (this.freeze) {
       hero.box.setVelocityX(0);
@@ -939,7 +998,7 @@ export default class PlayScene extends Phaser.Scene {
 
     // 추락 — 지면 바로 아래에서 바로 잡는다.
     // 더 늦게 잡으면 달리던 관성으로 지면 타일 밑에 들어가 점프해도 머리가 막힌다.
-    if (hero.box.y > FALL_Y && !hero.locked && !this.over) this.fallOut();
+    if (hero.box.y > FALL_Y && !hero.locked && !this.over) { this.lastCause = '구멍'; this.fallOut(); }
 
     if (!this.endless && !this.won && hero.box.x >= this.goalX) this.reachGoal();
 
@@ -1148,7 +1207,7 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   updateSonic(time) {
-    if (time - this.lastSonic < 3200) return;
+    if (time - this.lastSonic < (this.char.stats.sonicMs || 3200)) return;
     this.lastSonic = time;
     let hit = null;
     this.G.enemies.children.iterate((e) => {
@@ -1168,7 +1227,7 @@ export default class PlayScene extends Phaser.Scene {
         beam.destroy();
         if (!hit.active) return;
         this.hitMark(hit.x, hit.y - 30);
-        this.killEnemy(hit);
+        this.killEnemy(hit, false, 1);
         this.addScore(150);
       },
     });
@@ -1193,6 +1252,7 @@ export default class PlayScene extends Phaser.Scene {
         stageId: this.endless ? 'endless' : this.stage.id,
         missions: this.missions.map((m) => ({ ...m })),
         near: this.nearCount || 0,
+        cause: this.lastCause || null,
         baseScore: Math.round(this.baseScore),
         bonusScore: Math.round(this.bonusScore),
         bestMult: Math.round((this.peakMult || 1) * 10) / 10,

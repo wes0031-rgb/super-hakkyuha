@@ -1,10 +1,10 @@
-import { W, H } from '../config.js?v=1792026900';
-import { setupCamera } from '../hidpi.js?v=1792026900';
-import { unlock, sfx } from '../audio.js?v=1792026900';
-import { CHARACTERS, byId } from '../data/characters.js?v=1792026900';
-import { makeGradient } from '../level/textures.js?v=1792026900';
-import { panel, button } from '../ui.js?v=1792026900';
-import { load, setLast, isUnlocked } from '../save.js?v=1792026900';
+import { W, H } from '../config.js?v=1792031867';
+import { setupCamera } from '../hidpi.js?v=1792031867';
+import { unlock, sfx } from '../audio.js?v=1792031867';
+import { CHARACTERS, byId } from '../data/characters.js?v=1792031867';
+import { makeGradient } from '../level/textures.js?v=1792031867';
+import { panel, button } from '../ui.js?v=1792031867';
+import { load, setLast, isUnlocked } from '../save.js?v=1792031867';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -85,10 +85,13 @@ export default class SelectScene extends Phaser.Scene {
     this.skillDesc = this.add.text(W / 2 - 306, 396, '', {
       fontFamily: FONT, fontSize: '16px', fontStyle: '700', color: '#8a6a56',
     }).setDepth(1);
-    this.tokenIcon = this.add.image(W / 2 + 250, 388, 'tok-heart').setScale(0.19).setDepth(1);
-    this.tokenTxt = this.add.text(W / 2 + 250, 420, '', {
-      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#9a7b68',
+    this.tokenIcon = this.add.image(W / 2 + 268, 384, 'tok-heart').setScale(0.17).setDepth(1);
+    this.tokenTxt = this.add.text(W / 2 + 268, 414, '', {
+      fontFamily: FONT, fontSize: '12px', fontStyle: '700', color: '#9a7b68',
     }).setOrigin(0.5).setDepth(1);
+    this.statTxt = this.add.text(W / 2 - 306, 422, '', {
+      fontFamily: FONT, fontSize: '13px', fontStyle: '700', color: '#b08a4a',
+    }).setDepth(1);
 
     this.add.text(W / 2, 478, `★ ${data.stars}   ·   모은 것 ${data.bank.toLocaleString()}개`, {
       fontFamily: FONT, fontSize: '16px', fontStyle: '900', color: '#7b5a48',
@@ -119,10 +122,29 @@ export default class SelectScene extends Phaser.Scene {
       e.box.setFillStyle(e.id === id ? 0xfff1f6 : 0xfffaf4);
     });
     const c = byId(id);
+    const t = c.stats;
     this.skillName.setText(c.skill);
     this.skillDesc.setText(c.desc);
     this.tokenIcon.setTexture(`tok-${c.token}`);
     this.tokenTxt.setText('이걸 주워요');
+
+    const bits = [];
+    if (t.extraAir) bits.push(`공중 점프 ${1 + t.extraAir}번`);
+    if (t.jump) bits.push(`점프 높이 +${Math.round((t.jump - 1) * 100)}%`);
+    if (t.air > 1) bits.push(`2단 점프 +${Math.round((t.air - 1) * 100)}%`);
+    if (t.floaty) bits.push('천천히 낙하');
+    if (t.boost > 1) bits.push(`부스트 +${Math.round((t.boost - 1) * 100)}%`);
+    if (t.boostMult) bits.push(`부스트 중 점수 ×${t.boostMult}`);
+    if (t.token > 1) bits.push(`줍는 점수 +${Math.round((t.token - 1) * 100)}%`);
+    if (t.holdBonus) bits.push('배율이 늦게 깎임');
+    if (t.magnet) bits.push('먼 것도 끌어당김');
+    if (t.luck) bits.push('가끔 하나 더');
+    if (t.slideInvuln) bits.push('슬라이드 무적');
+    if (t.slideSpeed) bits.push(`슬라이드 속도 +${Math.round((t.slideSpeed - 1) * 100)}%`);
+    if (t.slideBreak) bits.push('슬라이드로 블록 부수기');
+    if (t.sonic) bits.push('앞의 적을 날림');
+    if (t.tough) bits.push(`맞은 뒤 무적 +${Math.round((t.tough - 1) * 100)}%`);
+    this.statTxt.setText(bits.join('   ·   '));
   }
 
   start() {

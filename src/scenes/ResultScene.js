@@ -1,12 +1,12 @@
-import { W, H } from '../config.js?v=1792026900';
-import { byId } from '../data/characters.js?v=1792026900';
-import { byStage, STAGES } from '../data/stages.js?v=1792026900';
-import { makeGradient } from '../level/textures.js?v=1792026900';
-import { finishRun, load } from '../save.js?v=1792026900';
+import { W, H } from '../config.js?v=1792031867';
+import { byId } from '../data/characters.js?v=1792031867';
+import { byStage, STAGES } from '../data/stages.js?v=1792031867';
+import { makeGradient } from '../level/textures.js?v=1792031867';
+import { finishRun, load } from '../save.js?v=1792031867';
 
-import { setupCamera } from '../hidpi.js?v=1792026900';
-import { unlock, sfx } from '../audio.js?v=1792026900';
-import { button, panel } from '../ui.js?v=1792026900';
+import { setupCamera } from '../hidpi.js?v=1792031867';
+import { unlock, sfx } from '../audio.js?v=1792031867';
+import { button, panel } from '../ui.js?v=1792031867';
 
 const FONT = 'Apple SD Gothic Neo, Noto Sans KR, sans-serif';
 
@@ -31,7 +31,7 @@ export default class ResultScene extends Phaser.Scene {
     this.input.on('pointerdown', () => { unlock(); sfx.click(); });
 
     const { cleared, score, tokens, heroId, stageId, missions = [], dist = 0, near = 0,
-      baseScore = 0, bonusScore = 0, bestMult = 1 } = this.d;
+      baseScore = 0, bonusScore = 0, bestMult = 1, cause = null } = this.d;
     const endless = stageId === 'endless';
     const char = byId(heroId);
     const stage = endless ? { name: '끝없이 달리기' } : byStage(stageId);
@@ -62,6 +62,12 @@ export default class ResultScene extends Phaser.Scene {
     this.add.text(W / 2, 240, `${char.name} · ${char.skill}`, {
       fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#8a6a56',
     }).setOrigin(0.5, 0);
+    if (!cleared && cause) {
+      this.add.text(W / 2, 128, `${cause} 에 당했어요`, {
+        fontFamily: FONT, fontSize: '19px', fontStyle: '900', color: '#ffffff',
+        stroke: '#8a6a56', strokeThickness: 6,
+      }).setOrigin(0.5);
+    }
 
     // 점수
     let y = 272;
